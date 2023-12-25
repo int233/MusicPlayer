@@ -62,7 +62,7 @@ export class CommonConstants {
   /**
    * Detail page url.
    */
-  static readonly PAGE_NAME: string = 'pages/DetailPage';
+  static readonly PAGE_NAME: string = 'pages/PlayPage';
 
   /**
    * Key to transfer parameters when replace pages.
@@ -193,4 +193,15 @@ export class CommonConstants {
    * Music Page Index.
    */
   static readonly INDEX_MINE: number = 1;
+
+  /**
+   * Music Play Control.
+   */
+  static PLAY_STATE: Boolean = false;
+
+  /**
+   * Music Play Control.
+   */
+  static SLIDE_STEP: number = 1;
+
 }

@@ -30,7 +30,23 @@
               "action.system.home"
             ]
           }
+        ],
+        "backgroundModes":[
+          "audioPlayback"
         ]
+      }
+    ],
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name":  "ohos.permission.KEEP_BACKGROUND_RUNNING",
+        "reason": "Music Play",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
       }
     ]
   }

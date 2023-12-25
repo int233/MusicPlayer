@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import { DetailListComponent } from '../view/DetailListComponent';
 import { CommonConstants } from '../common/constants/CommonConstants';
+import { PlayControler } from '../view/PlayControler';
 
 /**
  * Detail page to display more information.
@@ -9,6 +10,7 @@ import { CommonConstants } from '../common/constants/CommonConstants';
 @Component
 struct DetailPage {
   private titleParam: Resource = $r('app.string.detail_default_title');
+  private swiperController: SwiperController = new SwiperController();
 
   aboutToAppear() {
     if (router.getParams()) {
@@ -44,7 +46,22 @@ struct DetailPage {
             lg: CommonConstants.OFFSET_LG
           }
         }) {
-          DetailListComponent()
+          // DetailListComponent()
+          Swiper(this.swiperController) {
+            List(){
+              this.MusicDetail()
+            }
+
+            List(){
+              this.MusicAblumLyric()
+            }
+            List(){
+              this.MusicLyric()
+            }
+          }
+          // .margin({ top: $r('app.float.home_swiper_margin') })
+          .autoPlay(false)
+          // PlayControler()
         }
         .margin({
           left: $r('app.float.detail_grid_row_margin'),
@@ -59,7 +76,7 @@ struct DetailPage {
 
   @Builder Title() {
     Row() {
-      Image($r('app.media.ic_back'))
+      Image($r("app.media.ic_back_old"))
         .width($r('app.float.image_size'))
         .height($r('app.float.image_size'))
         .margin({
@@ -76,5 +93,24 @@ struct DetailPage {
     }
     .width(CommonConstants.FULL_WIDTH_PERCENT)
     .height($r('app.float.title_height'))
+  }
+
+  @Builder MusicDetail(){
+    Row() {
+      Text(this.titleParam)
+      Image($r("app.media.ic_back_old"))
+    }
+  }
+
+  @Builder MusicAblumLyric() {
+    Row() {
+      Image($r("app.media.ic_back_old"))
+    }
+  }
+
+  @Builder MusicLyric() {
+    Row() {
+      Text(this.titleParam)
+    }
   }
 }

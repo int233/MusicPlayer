@@ -1,28 +1,41 @@
 import router from '@ohos.router';
 import { CommonConstants } from '../common/constants/CommonConstants';
-import type { ListItemData } from '../common/bean/ListItemData';
-import { ListItemComponent } from './ListItemComponent';
+import type { MusicItemData } from '../common/bean/MusicItemData';
+import { ListMusicItemComponent } from './ListMusicItemComponent';
 import PageViewModel from '../viewmodel/PageViewModel';
-
+import { Logger } from '../common/utils/Logger';
+const TAG = 'ListAreaComponent'
 /**
  * List area of the main tab content.
  */
 @Component
 export struct ListAreaComponent {
+  @StorageLink('selectIndex') selectIndex: number = 1;
+
   build() {
     Column() {
+      Text("Music")
       List() {
-        LazyForEach(PageViewModel.getListDataSource(), (item: ListItemData) => {
+        ForEach(PageViewModel.getMusicData(), (item: MusicItemData) => {
+          // Logger.info(TAG, ``);
           ListItem() {
-            ListItemComponent({ itemInfo: item })
+            // ListItemComponent({ itemInfo: item })
+
+            ListMusicItemComponent({musicItems : item})
           }
           .onClick(() => {
+            AppStorage.SetOrCreate('selectIndex', item.id)
+            AppStorage.SetOrCreate('PlayingSong', PageViewModel.getMusicDataByID(item.id))
+            Logger.info(TAG,`selectIndex:${this.selectIndex}`)
+            Logger.info(item.imageAlbum)
+            Logger.info(item.Artist)
             router.pushUrl({
               url: CommonConstants.PAGE_NAME,
               params: {
-                data: item.title
+                data: item
               }
             });
+
           })
         }, (item, index) => index + JSON.stringify(item))
       }

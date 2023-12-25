@@ -1,8 +1,14 @@
 import { CommonConstants } from '../common/constants/CommonConstants';
 import type { TabItemData } from '../common/bean/TabItemData';
 import { ListAreaComponent } from '../view/ListAreaComponent';
+import { MineAreaComponent } from '../view/MineAreaComponent';
 import PageViewModel from '../viewmodel/PageViewModel';
+import { MusicItemData} from '../common/bean/MusicItemData'
+import { Logger } from '../common/utils/Logger';
+AppStorage.SetOrCreate('selectIndex', 1);
+AppStorage.SetOrCreate('PlayingSong', PageViewModel.getMusicDataByID(1))
 
+const TAG = 'ListPage';
 /**
  * ListPage is the entry of application and shows how to develop a list page.The page consists of the search component,
  * list, and tabs. The list component is ListAreaComponent, and each item in the list corresponds to ListItemComponent.
@@ -13,8 +19,10 @@ import PageViewModel from '../viewmodel/PageViewModel';
 @Entry
 @Component
 struct ListPage {
+
   @State currentTabIndex: number = 0;
   @State breakPoint: string = CommonConstants.BREAK_POINT_XS;
+  @StorageLink('selectIndex') selectIndex: number = 1;
 
   @Builder BuildTabs(item: TabItemData, index: number) {
     Column() {
@@ -84,9 +92,7 @@ struct ListPage {
                     .margin({
                       bottom: $r('app.float.search_margin_bottom')
                     })
-
-                  ListAreaComponent()
-                    .layoutWeight(CommonConstants.LIST_LAYOUT_WEIGHT)
+                  this.ListArea(index)
                 }
                 .justifyContent(FlexAlign.Center)
                 .width(CommonConstants.SEARCH_WIDTH_PERCENT)
@@ -132,5 +138,19 @@ struct ListPage {
       top: $r('app.float.title_margin_top'),
       left: $r('app.float.title_margin_left')
     })
+  }
+
+  @Builder ListArea(index){
+    Column(){
+      if (index === CommonConstants.INDEX_MUSIC){
+        // Logger.info(TAG, ``);
+        ListAreaComponent()
+          .layoutWeight(CommonConstants.LIST_LAYOUT_WEIGHT)
+      }
+      if (index === CommonConstants.INDEX_MINE){
+        MineAreaComponent()
+          .layoutWeight(CommonConstants.LIST_LAYOUT_WEIGHT)
+      }
+    }
   }
 }

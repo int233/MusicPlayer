@@ -2,7 +2,11 @@ import { CommonConstants } from '../common/constants/CommonConstants';
 import { ListItemData } from '../common/bean/ListItemData';
 import { TabItemData } from '../common/bean/TabItemData';
 import { ListDataSource } from './ListDataSource';
-
+import { ShortCutItemData } from '../common/bean/ShortCutItemData';
+import { MusicItemData } from '../common/bean/MusicItemData';
+import { MusicList } from '../viewmodel/MusicListViewModel';
+import { Logger } from '../common/utils/Logger'
+const TAG = "PageViewModel"
 /**
  * Binds data to components and provides interfaces.
  */
@@ -40,6 +44,25 @@ export class PageViewModel {
   }
 
   /**
+   * Get item information for the tab.
+   *
+   * @return {Array<ShortCutItemData>} tabItems
+   */
+  getShortCutData(): Array<ShortCutItemData> {
+    let shortCutItems: Array<ShortCutItemData> = [
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'我喜欢', 's',0),
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'所有列表', 's',0),
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'最近', 's',0),
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'全部', 's',0),
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'全部', 's',0),
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'我喜欢', 's',0),
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'所有列表', 's',0),
+      new ShortCutItemData($r('app.media.ic_normal'), $r('app.media.ic_activated'),'最近', 's',0),
+    ];
+    return shortCutItems;
+  }
+
+  /**
    * Get detail list Data.
    *
    * @return {Array<ListItemData>} listItems
@@ -53,6 +76,34 @@ export class PageViewModel {
       listItems.push(itemInfo);
     }
     return listItems;
+  }
+
+  /**
+   * Get Music item information for the tab.
+   * imageAlbum: ResourceStr, imageArtist: ResourceStr,
+   * title: ResourceStr, year: Number, titleAlbum?: ResourceStr,  playCount?: Number
+   * @return {Array<MusicItemData>} tabItems
+   */
+  getMusicData(): Array<MusicItemData> {
+    let musicItems: Array<MusicItemData> = MusicList
+    return musicItems;
+  }
+
+  // id: number, imageAlbum: ResourceStr, imageArtist: ResourceStr,
+  // title: ResourceStr, time: number, src: ResourceStr, year: number,
+  // titleAlbum?: ResourceStr,  playCount?: number
+  // getMusicDemoData(): MusicItemData {
+  //   let musicItems: MusicItemData = { id: 1, Artist: '张学友',imageAlbum: 'https://bkimg.cdn.bcebos.com/pic/d0c8a786c9177f3e6709c32ce9992cc79f3df8dcf8ce?x-bce-process=image/watermark,image_d2F0ZXIvYmFpa2U5MzM=,g_7,xp_5,yp_5/format,f_auto', imageArtist:'https://bkimg.cdn.bcebos.com/pic/d0c8a786c9177f3e6709c32ce9992cc79f3df8dcf8ce?x-bce-process=image/watermark,image_d2F0ZXIvYmFpa2U5MzM=,g_7,xp_5,yp_5/format,f_auto',
+  //     title: '吻别', time : 40, src: 'goodbye_kiss',year: 1993,
+  //     titleAlbum: '吻别', playCount : 1}
+  //   return musicItems
+  // }
+
+  getMusicDataByID(id): MusicItemData {
+    let musicItems: Array<MusicItemData> = this.getMusicData()
+    // Logger.info(TAG,`selectIndex:${id}`)
+    let musicItem = MusicList.find(item => item.id === id);
+    return musicItem
   }
 }
 

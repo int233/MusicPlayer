@@ -47,6 +47,26 @@
     {
       "name": "list_content_background",
       "value": "#FFFFFF"
+    },
+    {
+      "name": "text_color",
+      "value": "#376668"
+    },
+    {
+      "name": "text_sixty_color",
+      "value": "#99376668"
+    },
+    {
+      "name": "text_forty_color",
+      "value": "#99376668"
+    },
+    {
+      "name": "text_twenty_color",
+      "value": "#33376668"
+    },
+    {
+      "name": "button_background_color",
+      "value": "#FF1949"
     }
   ]
 }
