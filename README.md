@@ -1,12 +1,3 @@
-鸿蒙系统音乐播放器
+# IntMusic
 
-## ToDo List
-- [x] 有一个基本的界面
-- [ ] 正常播放mp3、flac、ape、wav、dsf等格式的音频文件
-- [ ] 正常解析以上音频文件 的tag
-- [ ] 支持逐字歌词
-- [ ] 支持在线歌词
-- [ ] 支持读取百度网盘和阿里云盘的音乐
-- [ ] 支持智能歌单
-- [ ] 支持年度报告
-- [ ] 支持DLNA
+[![](https://img.shields.io/badge/正在开发-QT-blue)](https://github.com/int233/MusicPlayer/tree/QT)
