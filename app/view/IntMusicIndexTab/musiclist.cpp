@@ -36,13 +36,8 @@ TabMusicList::TabMusicList(QWidget *parent)
     scrollLayout->addWidget(searchAndSortWidget);
 
     // 第二部分：音乐文件列表
-    QListWidget *musicListWidget = new QListWidget();
-    musicListWidget->setSelectionMode(QListWidget::SingleSelection);  // 设置单选模式
+    MusicListView *musicListWidget = new MusicListView(this);
 
-    // 添加示例音乐文件（实际项目中应从数据源加载）
-    musicListWidget->addItem("音乐文件 1 - 歌手A - 3:45");
-    musicListWidget->addItem("音乐文件 2 - 歌手B - 4:12");
-    musicListWidget->addItem("音乐文件 3 - 歌手C - 5:01");
 
     // 将音乐文件列表添加到 ScrollArea 的内容布局
     scrollLayout->addWidget(musicListWidget);

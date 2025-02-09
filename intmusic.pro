@@ -1,4 +1,4 @@
-QT       += core gui multimedia
+QT       += core gui multimedia sql
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -9,8 +9,10 @@ CONFIG += c++17
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+    app/custom/CardButton/cardbutton.cpp \
     app/custom/CardCombo/cardcombo.cpp \
     app/custom/FlexibleTabWidget/flexibletabwidget.cpp \
+    app/custom/MainSubTitle/mainsubtitle.cpp \
     app/util/Config/configmanager.cpp \
     app/util/Config/musiclibrary.cpp \
     app/util/MusicDB/musicscanner.cpp \
@@ -27,8 +29,10 @@ SOURCES += \
     intmusic.cpp
 
 HEADERS += \
+    app/custom/CardButton/cardbutton.h \
     app/custom/CardCombo/cardcombo.h \
     app/custom/FlexibleTabWidget/flexibletabwidget.h \
+    app/custom/MainSubTitle/mainsubtitle.h \
     app/util/Config/configmanager.h \
     app/util/Config/musiclibrary.h \
     app/util/MusicDB/musicscanner.h \
@@ -43,8 +47,8 @@ HEADERS += \
     app/view/Setting/settingconfig.h \
     intmusic.h
 
-FORMS += \
-    intmusic.ui
+# FORMS += \
+#     intmusic.ui
 
 TRANSLATIONS += \
     intmusic_zh_CN.ts

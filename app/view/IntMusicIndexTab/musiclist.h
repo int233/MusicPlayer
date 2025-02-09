@@ -10,6 +10,8 @@
 #include <QListWidget>
 #include <QScrollArea>
 
+#include "app/view/MusicListView/musiclistview.h"
+
 class TabMusicList : public QWidget
 {
     Q_OBJECT

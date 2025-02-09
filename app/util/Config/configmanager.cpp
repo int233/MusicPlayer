@@ -106,11 +106,23 @@ QString ConfigManager::GetMusicFolderConfigPath(){
 QString ConfigManager::GetHomeLibraryPath(){
     QDir userDir(QDir::home());
     QString userConfigPath = userDir.filePath("IntMusic/library/");
+    QDir dir;
+    if (!dir.mkpath(userConfigPath)) {
+        qWarning() << "Failed to create directory:" << userConfigPath;
+    } else {
+        qDebug() << "Directory created successfully:" << userConfigPath;
+    }
     return userConfigPath;
 }
 QString ConfigManager::GetMusicFolderLibraryPath(){
     QString musicBaseDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
     QString musicConfigPath = QDir(musicBaseDir).filePath("IntMusic/library/");
+    QDir dir;
+    if (!dir.mkpath(musicConfigPath)) {
+        qWarning() << "Failed to create directory:" << musicConfigPath;
+    } else {
+        qDebug() << "Directory created successfully:" << musicConfigPath;
+    }
     return musicConfigPath;
 }
 

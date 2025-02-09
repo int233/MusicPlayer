@@ -6,6 +6,8 @@
 #include <QComboBox>
 #include <QVBoxLayout>
 
+#include <app/custom/MainSubTitle/mainsubtitle.h>
+
 class CardCombo : public QWidget
 {
     Q_OBJECT
