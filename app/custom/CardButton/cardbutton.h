@@ -16,8 +16,6 @@ public:
     QPushButton* getPushButton() const { return button; }
 
 private:
-    QLabel *titleLabel;    // 标题
-    QLabel *subtitleLabel; // 副标题
     QPushButton *button;
 
 signals:

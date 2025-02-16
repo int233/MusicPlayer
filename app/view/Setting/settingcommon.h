@@ -8,9 +8,11 @@
 
 #include "app/custom/CardCombo/cardcombo.h"
 #include "app/custom/CardButton/cardbutton.h"
-#include "app/util/Config/configmanager.h"
+#include "app/custom/CardPathSelect/cardpathselect.h"
 
+#include "app/util/Config/configmanager.h"
 #include "app/util/Config/musiclibrary.h"
+#include "app/util/MusicDB/musicscanner.h"
 
 class SettingCommon : public QWidget
 {
@@ -24,7 +26,10 @@ private:
     CardCombo *configStoragePathCard;
     CardCombo *libraryStoragePathCard;
     CardButton *testButton;
+    CardPathSelect *testPathSelect;
+    CardButton *testScannerButton;
     ConfigManager &configManager;
+    MusicScanner &musicScanner;
 
 private slots:
     void ConfigStoragePathChanged(int index);

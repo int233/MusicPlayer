@@ -53,7 +53,7 @@ TabMusicList::TabMusicList(QWidget *parent)
 
     connect(searchBox, &QLineEdit::textChanged, this, &TabMusicList::onSearchTextChanged);
     connect(sortTypeComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &TabMusicList::onSortTypeChanged);
-    connect(reverseOrderCheckBox, &QCheckBox::stateChanged, this, &TabMusicList::onReverseOrderChanged);
+    // connect(reverseOrderCheckBox, &QCheckBox::stateChanged, this, &TabMusicList::onReverseOrderChanged);
 }
 
 

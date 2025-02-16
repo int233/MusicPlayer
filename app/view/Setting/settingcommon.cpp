@@ -1,7 +1,7 @@
 #include "settingcommon.h"
 
 SettingCommon::SettingCommon(QWidget *parent)
-    : QWidget{parent},configManager(ConfigManager::instance())
+    : QWidget{parent},configManager(ConfigManager::instance()),musicScanner(MusicScanner::instance())
 {
 
     QVBoxLayout *commonLayout = new QVBoxLayout(this);
@@ -38,13 +38,22 @@ SettingCommon::SettingCommon(QWidget *parent)
     }
 
     // Test Button
-    testButton = new CardButton("Test", "测试向数据库中添加一首歌", this);
+    CardButton *testButton = new CardButton("Test", "测试向数据库中添加一首歌", this);
+
+    // Test Scanner
+
+    CardButton *testScannerButton = new CardButton("Test", "扫描音乐", this);
+
+    // Test Path Select
+    CardPathSelect *testPathSelect = new CardPathSelect("音乐文件夹", "选择音乐文件夹路径", this);
 
 
     // 将 ComboCard 添加到布局
     commonLayout->addWidget(configStoragePathCard);
     commonLayout->addWidget(libraryStoragePathCard);
     commonLayout->addWidget(testButton);
+    commonLayout->addWidget(testScannerButton);
+    commonLayout->addWidget(testPathSelect);
     commonLayout->addStretch();
 
 
@@ -59,6 +68,12 @@ SettingCommon::SettingCommon(QWidget *parent)
             this,
             &SettingCommon::LibraryStoragePathChanged
             );
+    connect(testScannerButton->getPushButton(),
+            &QPushButton::clicked,
+            this,
+            [this]{
+                musicScanner.startScan();
+            });
     connect(testButton->getPushButton(),
             &QPushButton::clicked,
             this,
@@ -86,8 +101,8 @@ SettingCommon::SettingCommon(QWidget *parent)
                 song.liveEventCount = "Taipei";
                 song.isCover = false;
                 song.isMashup = false;
-                song.characters.insert("performer", "John Doe");
-                song.characters.insert("composer", "Jane Smith");
+                song.characters.insert("performer", {"乔","John Doe"});
+                song.characters.insert("composer", {"简", "Jane Smith"});
                 song.genres = {"Pop", "Rock"};
                 song.languages = {"en", "zh"};
 

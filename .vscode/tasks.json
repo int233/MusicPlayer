@@ -1,29 +1,147 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"type": "cppbuild",
-			"label": "C/C++: clang 生成活动文件",
-			"command": "/usr/bin/clang",
-			"args": [
-				"-fcolor-diagnostics",
-				"-fansi-escape-codes",
-				"-g",
-				"${file}",
-				"-o",
-				"${fileDirname}/${fileBasenameNoExtension}"
-			],
-			"options": {
-				"cwd": "${fileDirname}"
-			},
-			"problemMatcher": [
-				"$gcc"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"detail": "编译器: /usr/bin/clang"
-		}
-	]
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "mkdir",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "mkdir",
+            "args": [
+                "-Force",
+                "build"
+            ]
+        },
+        {
+            "label": "make-debug",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "cmake",
+            "args": [
+                "-Bbuild/debug",
+                "-GNinja",
+                "\"-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe\"",
+                "\"-DCMAKE_BUILD_TYPE:STRING=Debug\"",
+                "\"-DCMAKE_PROJECT_INCLUDE_BEFORE:FILEPATH=C:/Qt/Tools/QtCreator/share/qtcreator/package-manager/auto-setup.cmake\"",
+                "\"-DCMAKE_PREFIX_PATH:PATH=C:/Qt/6.8.1/mingw_64\""
+            ],
+            "dependsOn": [
+                "mkdir"
+            ]
+        },
+        {
+            "label": "make-build-debug",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "cmake",
+            "args": [
+                "--build",
+                "./build/debug",
+                "--target",
+                "all"
+            ],
+            "dependsOn": [
+                "make-debug"
+            ]
+        },
+        {
+            "label": "make-install-debug",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "cmake",
+            "args": [
+                "--install",
+                "./build/debug",
+                "--prefix",
+                "${workspaceFolder}/build/debug"
+            ],
+            "dependsOn": [
+                "make-build-debug"
+            ]
+        },
+        {
+            "label": "run-debug",
+            "type": "process",
+            "options": {
+                "cwd": "${workspaceFolder}/build/debug/bin"
+            },
+            "command": "IntMusic.exe",
+            "dependsOn": [
+                "make-install-debug"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "make-release",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "cmake",
+            "args": [
+                "-Bbuild/release",
+                "-GNinja",
+                "-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe",
+                "-DCMAKE_BUILD_TYPE=Release",
+                "-DCMAKE_PROJECT_INCLUDE_BEFORE=C:/Qt/Tools/QtCreator/share/qtcreator/package-manager/auto-setup.cmake",
+                "-DCMAKE_PREFIX_PATH=C:/Qt/6.8.1/mingw_64"
+            ],
+            "dependsOn": ["mkdir"]
+        },
+        {
+            "label": "make-build-release",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "cmake",
+            "args": [
+                "--build",
+                "./build/release",
+                "--target",
+                "all",
+                "--config",
+                "Release"
+            ],
+            "dependsOn": ["make-release"]
+        },
+        {
+            "label": "make-install-release",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "cmake",
+            "args": [
+                "--install",
+                "./build/release",
+                "--prefix",
+                "${workspaceFolder}/build/release"
+            ],
+            "dependsOn": [
+                "make-build-release"
+            ]
+        },
+        {
+            "label": "run-release",
+            "type": "process",
+            "options": {
+                "cwd": "${workspaceFolder}/build/release/bin"
+            },
+            "command": "IntMusic.exe",
+            "dependsOn": ["make-install-release"],
+            "problemMatcher": ["$gcc"]
+        }
+    ]
 }

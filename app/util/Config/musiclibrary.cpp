@@ -233,7 +233,7 @@ int MusicLibrary::ensureAlbumExists(const SongInfo &songInfo)
     return query.lastInsertId().toInt();
 }
 
-int MusicLibrary::ensureCharacterExists(const QString &role, const QString &characterName, const QString &foreignName)
+int MusicLibrary::ensureCharacterExists(const QString &characterName, const QString &foreignName)
 {
     // 检查输入有效性
     if (characterName.isEmpty() && foreignName.isEmpty()) {
@@ -360,7 +360,7 @@ bool MusicLibrary::insertSong(const SongInfo &songInfo)
             const QString &foreignName = it.value().second;
 
             try {
-                int charId = ensureCharacterExists(role, characterName, foreignName);
+                int charId = ensureCharacterExists(characterName, foreignName);
 
                 QSqlQuery scQuery(m_db);
                 scQuery.prepare(

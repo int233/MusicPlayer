@@ -42,7 +42,6 @@ public:
         bool isCover = false;
         bool isMashup = false;
         QDateTime releaseTime;
-
         QMultiMap<QString, QPair<QString, QString>> characters; // key: role, value: (characterName, foreignName)
         QStringList genres;
         QStringList languages;
@@ -76,8 +75,7 @@ private:
     // static constexpr const char* DB_FILE_NAME = "/music_library.db";
 
     // 插入角色
-    // int insertCharacter(const QString &name, const QString &foreignName);
-    int ensureCharacterExists(const QString &role, const QString &characterName, const QString &foreignName);
+    int ensureCharacterExists(const QString &characterName, const QString &foreignName);
     // 检查专辑是否存在
     int ensureAlbumExists(const SongInfo &songInfo);
 
