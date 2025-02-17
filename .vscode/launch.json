@@ -23,7 +23,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "make-install-debug", 
+            "preLaunchTask": "make-install-debug-windows", 
         },
         {
             "name": "Debug-mac", 

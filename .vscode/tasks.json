@@ -11,7 +11,18 @@
             },
             "command": "mkdir",
             "args": [
-                "-p",
+                "build"
+            ]
+        },
+        {
+            "label": "mkdir-windows",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "mkdir",
+            "args": [
+                "-Force",
                 "build"
             ]
         },
@@ -26,13 +37,13 @@
             "args": [
                 "-Bbuild/debug",
                 "-GNinja",
-                "\"-DCMAKE_MAKE_PROGRAM=${NINJA_PROGRAM}\"",
+                "\"-DCMAKE_MAKE_PROGRAM=${config:NINJA_PROGRAM_WIN}\"",
                 "\"-DCMAKE_BUILD_TYPE:STRING=Debug\"",
-                "\"-DCMAKE_PROJECT_INCLUDE_BEFORE:FILEPATH=${QT_AUTO_SETUP}\"",
-                "\"-DCMAKE_PREFIX_PATH:PATH=${CMAKE_PREFIX_PATH}\""
+                "\"-DCMAKE_PROJECT_INCLUDE_BEFORE:FILEPATH=${config:QT_AUTO_SETUP_WIN}\"",
+                "\"-DCMAKE_PREFIX_PATH:PATH=${config:CMAKE_PREFIX_PATH_WIN}\""
             ],
             "dependsOn": [
-                "mkdir"
+                "mkdir-windows"
             ]
         },
         {
@@ -142,12 +153,12 @@
             "args": [
                 "-Bbuild/release",
                 "-GNinja",
-                "-DCMAKE_MAKE_PROGRAM=${NINJA_PROGRAM}",
+                "-DCMAKE_MAKE_PROGRAM=${config:NINJA_PROGRAM_WIN}",
                 "-DCMAKE_BUILD_TYPE=Release",
-                "-DCMAKE_PROJECT_INCLUDE_BEFORE=${QT_AUTO_SETUP}",
-                "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
+                "-DCMAKE_PROJECT_INCLUDE_BEFORE=${config:QT_AUTO_SETUP_WIN}",
+                "-DCMAKE_PREFIX_PATH=${config:CMAKE_PREFIX_PATH_WIN}"
             ],
-            "dependsOn": ["mkdir"]
+            "dependsOn": ["mkdir-windows"]
         },
         {
             "label": "make-build-release-windows",
