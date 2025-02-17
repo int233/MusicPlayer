@@ -11,12 +11,13 @@
             },
             "command": "mkdir",
             "args": [
-                "-Force",
+                "-p",
                 "build"
             ]
         },
+        // Windows Debug
         {
-            "label": "make-debug",
+            "label": "make-debug-windows",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -25,17 +26,17 @@
             "args": [
                 "-Bbuild/debug",
                 "-GNinja",
-                "\"-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe\"",
+                "\"-DCMAKE_MAKE_PROGRAM=${NINJA_PROGRAM}\"",
                 "\"-DCMAKE_BUILD_TYPE:STRING=Debug\"",
-                "\"-DCMAKE_PROJECT_INCLUDE_BEFORE:FILEPATH=C:/Qt/Tools/QtCreator/share/qtcreator/package-manager/auto-setup.cmake\"",
-                "\"-DCMAKE_PREFIX_PATH:PATH=C:/Qt/6.8.1/mingw_64\""
+                "\"-DCMAKE_PROJECT_INCLUDE_BEFORE:FILEPATH=${QT_AUTO_SETUP}\"",
+                "\"-DCMAKE_PREFIX_PATH:PATH=${CMAKE_PREFIX_PATH}\""
             ],
             "dependsOn": [
                 "mkdir"
             ]
         },
         {
-            "label": "make-build-debug",
+            "label": "make-build-debug-windows",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -48,11 +49,11 @@
                 "all"
             ],
             "dependsOn": [
-                "make-debug"
+                "make-debug-windows"
             ]
         },
         {
-            "label": "make-install-debug",
+            "label": "make-install-debug-windows",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -65,25 +66,74 @@
                 "${workspaceFolder}/build/debug"
             ],
             "dependsOn": [
-                "make-build-debug"
+                "make-build-debug-windows"
             ]
         },
         {
-            "label": "run-debug",
+            "label": "run-debug-windows",
             "type": "process",
             "options": {
                 "cwd": "${workspaceFolder}/build/debug/bin"
             },
             "command": "IntMusic.exe",
             "dependsOn": [
-                "make-install-debug"
+                "make-install-debug-windows"
             ],
             "problemMatcher": [
                 "$gcc"
             ]
         },
+
+        // Mac Debug
         {
-            "label": "make-release",
+            "label": "make-debug-mac",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "${config:QT_CMAKE_PROGRAM_MAC}",
+            "args": [
+                "\"-S ${workspaceFolder}\"",
+                "-Bbuild/debug",
+                "-GNinja",
+            ],
+            "dependsOn": [
+                "mkdir"
+            ]
+        },
+        {
+            "label": "make-build-debug-mac",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/build/debug"
+            },
+            "command": "ninja",
+            "args": [],
+            "dependsOn": [
+                "make-debug-mac"
+            ]
+        },
+        {
+            "label": "run-debug-mac",
+            "type": "process",
+            "options": {
+                "cwd": "${workspaceFolder}/build/debug/"
+            },
+            "command": "open",
+            "args": [
+                "-a", "IntMusic.app"
+            ],
+            "dependsOn": [
+                "make-build-debug-mac"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+
+        // Windows Release
+        {
+            "label": "make-release-windows",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -92,15 +142,15 @@
             "args": [
                 "-Bbuild/release",
                 "-GNinja",
-                "-DCMAKE_MAKE_PROGRAM=C:/Qt/Tools/Ninja/ninja.exe",
+                "-DCMAKE_MAKE_PROGRAM=${NINJA_PROGRAM}",
                 "-DCMAKE_BUILD_TYPE=Release",
-                "-DCMAKE_PROJECT_INCLUDE_BEFORE=C:/Qt/Tools/QtCreator/share/qtcreator/package-manager/auto-setup.cmake",
-                "-DCMAKE_PREFIX_PATH=C:/Qt/6.8.1/mingw_64"
+                "-DCMAKE_PROJECT_INCLUDE_BEFORE=${QT_AUTO_SETUP}",
+                "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
             ],
             "dependsOn": ["mkdir"]
         },
         {
-            "label": "make-build-release",
+            "label": "make-build-release-windows",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -114,10 +164,10 @@
                 "--config",
                 "Release"
             ],
-            "dependsOn": ["make-release"]
+            "dependsOn": ["make-release-windows"]
         },
         {
-            "label": "make-install-release",
+            "label": "make-install-release-windows",
             "type": "shell",
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -130,18 +180,65 @@
                 "${workspaceFolder}/build/release"
             ],
             "dependsOn": [
-                "make-build-release"
+                "make-build-release-windows"
             ]
         },
         {
-            "label": "run-release",
+            "label": "run-release-windows",
             "type": "process",
             "options": {
                 "cwd": "${workspaceFolder}/build/release/bin"
             },
             "command": "IntMusic.exe",
-            "dependsOn": ["make-install-release"],
+            "dependsOn": ["make-install-release-windows"],
             "problemMatcher": ["$gcc"]
+        },
+
+        // Mac Release
+        {
+            "label": "make-release-mac",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "${config:QT_CMAKE_PROGRAM_MAC}",
+            "args": [
+                "\"-S ${workspaceFolder}\"",
+                "-Bbuild/release",
+                "-GNinja",
+            ],
+            "dependsOn": [
+                "mkdir"
+            ]
+        },
+        {
+            "label": "make-build-release-mac",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/build/release"
+            },
+            "command": "ninja",
+            "args": [],
+            "dependsOn": [
+                "make-release-mac"
+            ]
+        },
+        {
+            "label": "run-release-mac",
+            "type": "process",
+            "options": {
+                "cwd": "${workspaceFolder}/build/release/"
+            },
+            "command": "open",
+            "args": [
+                "-a", "IntMusic.app"
+            ],
+            "dependsOn": [
+                "make-build-release-mac"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ]
         }
     ]
 }

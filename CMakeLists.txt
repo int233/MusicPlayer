@@ -5,8 +5,6 @@ project(IntMusic VERSION 0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_PREFIX_PATH "C:/Qt/6.8.1/mingw_64/lib/cmake/Qt6")
-
 # 查找Qt组件
 find_package(Qt6 6.5 REQUIRED COMPONENTS
     Core
@@ -101,9 +99,15 @@ install(TARGETS IntMusic
 # 添加依赖关系
 add_dependencies(IntMusic taglib)
 
+if(APPLE)
+set_target_properties(IntMusic PROPERTIES
+    MACOSX_BUNDLE TRUE
+)
+endif()
+
 set(deploy_tool_options_arg "")
 if(APPLE)
-    set(deploy_tool_options_arg --hardened-runtime)
+    # set(deploy_tool_options_arg --hardened-runtime)
 elseif(WIN32)
     set(deploy_tool_options_arg --no-compiler-runtime)
 endif()

@@ -80,5 +80,26 @@
         "span": "cpp",
         "stop_token": "cpp",
         "text_encoding": "cpp"
-    }
+    },
+    
+    "terminal.integrated.env.windows": {
+        "NINJA_PROGRAM": "C:/Qt/Tools/Ninja/ninja.exe",
+        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/CMake_64/bin/cmake.exe",
+        "QT_AUTO_SETUP": "C:/Qt/Tools/QtCreator/share/qtcreator/package-manager/auto-setup.cmake",
+        "CMAKE_PREFIX_PATH": "C:/Qt/6.8.1/mingw_64/lib/cmake/Qt6",
+        "QT_PREFIX_PATH": "C:/Qt/6.8.1/mingw_64",
+        "DEBUGGER_PATH": "C:/Qt/Tools/mingw1310_64/bin/gdb.exe"
+    },
+    "terminal.integrated.env.osx": {
+        "QT_CMAKE_PROGRAM": "/Users/luojy/Qt/6.8.1/macos/bin/qt-cmake",
+        "CMAKE_MAKE_PROGRAM": "/Users/luojy/Qt/Tools/CMake/CMake.app/Contents/bin/cmake",
+        "NINJA_PROGRAM": "/Users/luojy/Qt/Tools/Ninja/ninja",
+        "C_EXECUTABLE": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang",
+        "CXX_EXECUTABLE": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++",
+        "QT_AUTO_SETUP": "/Users/luojy/Qt/Qt Creator.app/Contents/Resources/package-manager/auto-setup.cmake",
+        "CMAKE_PREFIX_PATH": "/Users/luojy/Qt/6.8.1/macos/lib/cmake/Qt6",
+        "QT_PREFIX_PATH": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin",
+        "DEBUGGER_PATH": "/Applications/Xcode.app/Contents/Developer/usr/bin/lldb"
+    },
+    "QT_CMAKE_PROGRAM_MAC": "/Users/luojy/Qt/6.8.1/macos/bin/qt-cmake",
 }
