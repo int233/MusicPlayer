@@ -41,27 +41,12 @@ ExternalProject_Add(
 )
 
 # 添加可执行文件
-add_executable(IntMusic
-    app/custom/CardButton/cardbutton.cpp
-    app/custom/CardCombo/cardcombo.cpp
-    app/custom/CardPathSelect/cardpathselect.cpp
-    app/custom/FlexibleTabWidget/flexibletabwidget.cpp
-    app/custom/MainSubTitle/mainsubtitle.cpp
-    app/util/Config/configmanager.cpp
-    app/util/Config/musiclibrary.cpp
-    app/util/MusicDB/musicscanner.cpp
-    app/util/MusicPlayer/musicplayer.cpp
-    app/view/IntMusicIndexTab/index.cpp
-    app/view/IntMusicIndexTab/intmusicindextab.cpp
-    app/view/IntMusicIndexTab/musiclist.cpp
-    app/view/IntMusicIndexTab/setting.cpp
-    app/view/MiniPlayer/miniplayer.cpp
-    app/view/MusicListView/musiclistview.cpp
-    app/view/Setting/settingcommon.cpp
-    app/view/Setting/settingconfig.cpp
-    app/main.cpp
-    app/intmusic.cpp
-)
+function(scan_sources dir result)
+    file(GLOB_RECURSE sources "${dir}/*.cpp")
+    set(${result} ${sources} PARENT_SCOPE)
+endfunction()
+scan_sources("app" INTMUSIC_SOURCES)
+add_executable(IntMusic ${INTMUSIC_SOURCES})
 
 qt_add_translations(
     TARGETS IntMusic

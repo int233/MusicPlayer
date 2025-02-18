@@ -12,11 +12,7 @@ ConfigManager::ConfigManager(QObject *parent)
 
     QString path = GetConfigPath();
 
-    QString logMessage = QString("Time: %1 | ConfigPath: %2")
-                             .arg(currentTime).arg(path);
-
     m_settings = new QSettings(path, QSettings::IniFormat, this);
-    m_settings->setValue("Common/Title", "IntMusic");
 
     SaveConfig(path, m_settings);
 
@@ -24,7 +20,8 @@ ConfigManager::ConfigManager(QObject *parent)
 }
 
 QString ConfigManager::configPath() const {
-    return m_settings ? m_settings->fileName() : QString();
+    // return m_settings ? m_settings->fileName() : QString();
+    return m_settings->value("Common/ConfigPath").toString();
 }
 
 QSettings* ConfigManager::getSettings() {
@@ -70,15 +67,30 @@ QString ConfigManager::GetConfigPath(){
         return musicConfigPath;
     }
 
-    // 两个路径都不存在创建新Config
-    QString newConfigPath = SaveConfig();
-
-    if (QFileInfo::exists(newConfigPath)) {
-        return newConfigPath;
-    } else {
-        return QString();
+    // 两个路径都不存在则在GetHomeConfigPath()创建新的配置文件
+    QString newConfigPath = GetHomeConfigPath();
+    QDir configDir = QFileInfo(newConfigPath).dir();
+    if (!configDir.exists()) {
+        if (!configDir.mkpath(".")) {
+            qWarning() << "Failed to create config directory:" << configDir.path();
+            return QString();
+        }
     }
 
+    QSettings newConfig(newConfigPath, QSettings::IniFormat);
+    // 设置默认值
+    newConfig.setValue("Common/Title", "IntMusic Player");
+    newConfig.setValue("Common/ConfigPath", GetHomePath());
+    newConfig.sync(); // 确保文件被写入磁盘
+
+    if (newConfig.status() != QSettings::NoError) {
+        qWarning() << "Failed to create config file:" << newConfigPath;
+        return QString(); // 返回空字符串表示失败
+    }
+
+    qDebug() << "Created new config file at:" << newConfigPath;
+
+    return newConfigPath;
 }
 
 QString ConfigManager::GetHomePath(){
@@ -88,7 +100,7 @@ QString ConfigManager::GetHomePath(){
 
 QString ConfigManager::GetMusicFolderPath(){
     QString musicBaseDir = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
-    return QDir(musicBaseDir).filePath("IntMusic/");
+    return QDir(musicBaseDir).filePath("/");
 }
 
 QString ConfigManager::GetHomeConfigPath(){
@@ -175,4 +187,77 @@ int ConfigManager::setConfig(QString key, QVariant value) {
     emit settingsChanged();
 
     return 1;
+}
+
+    // 迁移配置文件
+void ConfigManager::migrateConfig(QString oldFolder, QString newFolder){
+    QDir oldDir(oldFolder);
+    QDir newDir(newFolder);
+
+    QString canonicalOldPath = oldDir.canonicalPath();
+    QString canonicalNewPath = newDir.canonicalPath();
+
+    if (canonicalOldPath == canonicalNewPath) {
+        qDebug() << "Source and destination paths are the same. No migration needed.";
+        return;
+    }
+
+    if (!newDir.exists()) {
+        if (!newDir.mkpath(".")) {
+            qWarning() << "Failed to create destination directory:" << newFolder;
+            return;
+        }
+    }
+
+    if (copyDirectory(oldDir, newDir, true)) {
+        qDebug() << "Successfully migrated IntMusic folder from" << oldFolder << "to" << newFolder;
+
+        // 更新 QSettings 的路径
+        QString newIniPath = newDir.filePath("IntMusic.ini");
+        if (m_settings) {
+            delete m_settings; // 删除旧的 QSettings 对象
+        }
+        m_settings = new QSettings(newIniPath, QSettings::IniFormat, this);
+    } else {
+        qWarning() << "Failed to migrate IntMusic folder from" << oldFolder << "to" << newFolder;
+    }
+}
+
+bool ConfigManager::copyDirectory(const QDir &sourceDir, const QDir &targetDir, bool removeSourceAfterCopy = false) {
+    // 遍历源文件夹中的所有文件和子文件夹
+    QFileInfoList entries = sourceDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const QFileInfo &entry : entries) {
+        QString sourcePath = entry.absoluteFilePath();
+        QString targetPath = targetDir.filePath(entry.fileName());
+
+        if (entry.isDir()) {
+            // 如果是子文件夹，递归复制
+            QDir targetSubDir(targetPath);
+            if (!targetSubDir.exists() && !targetSubDir.mkpath(".")) {
+                qWarning() << "Failed to create subdirectory:" << targetPath;
+                return false;
+            }
+            if (!copyDirectory(QDir(sourcePath), targetSubDir, removeSourceAfterCopy)) {
+                return false;
+            }
+        } else if (entry.isFile()) {
+            // 如果是文件，直接复制
+            if (!QFile::copy(sourcePath, targetPath)) {
+                qWarning() << "Failed to copy file:" << sourcePath << "to" << targetPath;
+                return false;
+            }
+        }
+    }
+
+    // 如果复制成功且需要删除源目录
+    if (removeSourceAfterCopy) {
+        QDir nonConstSourceDir(sourceDir.absolutePath());
+        if (!nonConstSourceDir.removeRecursively()) {
+            qWarning() << "Failed to remove source directory:" << sourceDir.absolutePath();
+            return false;
+        }
+    }
+
+    return true;
 }

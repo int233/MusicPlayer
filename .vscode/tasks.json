@@ -11,6 +11,7 @@
             },
             "command": "mkdir",
             "args": [
+                "-p",
                 "build"
             ]
         },

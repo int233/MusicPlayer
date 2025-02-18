@@ -83,3 +83,4 @@ CMakeLists.txt.user*
 .cache/
 
 *.flac
+c_cpp_properties.json

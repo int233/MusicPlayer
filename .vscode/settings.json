@@ -1,5 +1,10 @@
 {
     "files.associations": {
+        "*.sqlbook": "sql",
+        "*.ndjson": "jsonl",
+        "*.dbclient-js": "javascript",
+        "*.rmd": "markdown",
+        "*.Rmd": "rmd",
         "qwidget": "cpp",
         "qmainwindow": "cpp",
         "qlistwidgetitem": "cpp",
@@ -79,7 +84,16 @@
         "shared_mutex": "cpp",
         "span": "cpp",
         "stop_token": "cpp",
-        "text_encoding": "cpp"
+        "text_encoding": "cpp",
+        "qlabel": "cpp",
+        "locale": "cpp",
+        "qdir": "cpp",
+        "qfileinfo": "cpp",
+        "qvboxlayout": "cpp",
+        "__tree": "cpp",
+        "bitset": "cpp",
+        "queue": "cpp",
+        "stack": "cpp"
     },
     
     "terminal.integrated.env.windows": {

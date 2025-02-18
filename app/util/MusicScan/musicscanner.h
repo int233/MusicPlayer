@@ -12,6 +12,8 @@
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
 
+#include "musicscannerworker.h"
+
 #include "app/util/Config/configmanager.h"
 #include "app/util/Config/musiclibrary.h"
 
@@ -19,6 +21,7 @@
 class MusicScanner : public QObject
 {
     Q_OBJECT
+    bool m_isScanning = false;
 public:
     static MusicScanner& instance();
     ~MusicScanner();
@@ -33,7 +36,7 @@ signals:
     void scanTagFinished(int tagCount);
     void scanTagFailed(const QString &error);
     void musicFileTagRead(const QString &filePath, const QString &title, const QString &artist, const QString &album);
-
+    void startScanRequested(const QStringList &musicFolders, int maxFiles);
 
 public slots:
     void startScan();
@@ -42,7 +45,10 @@ private:
     explicit MusicScanner(QObject *parent = nullptr);
     ConfigManager &configManager;
     QStringList m_supportedFormats = {"*.mp3", "*.flac", "*.wav", "*.ogg", "*.m4a"};
-    int maxFiles = 10;
+    int maxFiles = 100;
+
+    QThread *workerThread;
+    MusicScannerWorker *worker;
 };
 
 #endif // SCANMUSIC_H

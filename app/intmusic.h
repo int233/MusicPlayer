@@ -39,9 +39,6 @@ private slots:
 private:
     QWidget *centralWidget;
 
-    // config
-    // ConfigManager& configManager;
-
     // 首页控件
     IntMusicIndexTab *mainTab;
 
