@@ -27,8 +27,10 @@ MusicScanner::MusicScanner(QObject *parent)
     connect(this, &MusicScanner::startScanRequested, worker, &MusicScannerWorker::doScan);
 
     // 连接结束扫描的信号
-    connect(worker, &MusicScannerWorker::scanTagFinished, this, [this]() { m_isScanning = false; });
+    connect(worker, &MusicScannerWorker::scanMusicFailed, this, [this]() { m_isScanning = false; });
+    connect(worker, &MusicScannerWorker::scanMusicFinished, this, [this]() { m_isScanning = false; });
     connect(worker, &MusicScannerWorker::scanTagFailed, this, [this]() { m_isScanning = false; });
+    connect(worker, &MusicScannerWorker::scanTagFinished, this, [this]() { m_isScanning = false; });
 
     workerThread->start();
 }

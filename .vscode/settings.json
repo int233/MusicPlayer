@@ -93,7 +93,8 @@
         "__tree": "cpp",
         "bitset": "cpp",
         "queue": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "__locale": "cpp"
     },
     
     "terminal.integrated.env.windows": {

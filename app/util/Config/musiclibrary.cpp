@@ -116,14 +116,20 @@ void MusicLibrary::createTables()
         "CREATE TABLE IF NOT EXISTS Albums ("
         "    album_id       INTEGER PRIMARY KEY AUTOINCREMENT,"
         "    album_name     TEXT NOT NULL CHECK(album_name != ''),"
+        "    album_first_artist     TEXT NOT NULL CHECK(album_first_artist != ''),"
         "    publisher      TEXT,"
         "    album_score    REAL CHECK(album_score BETWEEN 0 AND 5),"
         "    album_version  TEXT,"
-        "    original_release_time   DATETIME,"
-        "    album_release_time   DATETIME,"
+        "    original_release_year   INTEGER,"
+        "    original_release_month   INTEGER,"
+        "    original_release_day   INTEGER,"
+        "    original_release_level   INTEGER,"
+        "    album_release_year   INTEGER,"
+        "    album_release_month   INTEGER,"
+        "    album_release_day   INTEGER,"
+        "    album_release_level   INTEGER,"
         "    country        TEXT,"
         "    genres          TEXT,"
-        "    total_tracks   INTEGER,"
         "    total_discs    INTEGER,"
         "    cover_path     TEXT,"
         "    languages     TEXT,"
@@ -154,12 +160,18 @@ void MusicLibrary::createTables()
     character_id
     character_name: 姓名
     character_foreign_name: 外文名
+    portrait_path: 头像路径
+
+    扫描音乐时，通过姓名和外文名匹配，若存在则使用已有角色，若不存在则插入新角色
+    若需插入相同姓名的人，通过overlap_id区分，默认为0
     */
     query.exec(
         "CREATE TABLE IF NOT EXISTS Characters ("
         "    character_id             INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "    character_name           TEXT CHECK(character_name != ''),"
-        "    character_foreign_name   TEXT CHECK(character_foreign_name != ''),"
+        "    character_name           TEXT,"
+        "    character_foreign_name   TEXT,"
+        "    portrait_path            TEXT,"
+        "    overlap_id               INTEGER DEFAULT 0,"
         "    created_at               DATETIME DEFAULT CURRENT_TIMESTAMP,"
         "    modified_at              DATETIME DEFAULT CURRENT_TIMESTAMP"
         ");"
@@ -188,21 +200,30 @@ void MusicLibrary::createTables()
         "CREATE TABLE IF NOT EXISTS Songs ("
         "    song_id        INTEGER PRIMARY KEY AUTOINCREMENT,"
         "    title          TEXT NOT NULL CHECK(title != ''),"
-        "    duration_ms    INTEGER CHECK(duration_ms > 0),"
+        "    durations    INTEGER CHECK(durations > 0),"
+        "    first_artist   TEXT NOT NULL CHECK(first_artist != ''),"
         "    file_size      INTEGER CHECK(file_size > 0),"
         "    file_path      TEXT NOT NULL UNIQUE CHECK(file_path != ''),"
         "    album_id       INTEGER REFERENCES Albums(album_id) ON DELETE SET NULL,"
-        "    track_number   INTEGER CHECK(track_number > 0),"
-        "    disc_number    INTEGER CHECK(disc_number > 0),"
+        "    track_number   INTEGER CHECK(track_number >= 0),"
+        "    disc_number    INTEGER CHECK(disc_number >= 0),"
+        "    total_track_number   INTEGER DEFAULT 1 CHECK(track_number >= 0),"
+        "    total_disc_number    INTEGER DEFAULT 1 CHECK(disc_number >= 0),"
         "    is_favorite    BOOLEAN DEFAULT 0,"
         "    is_live        BOOLEAN DEFAULT 0,"
         "    is_single      BOOLEAN DEFAULT 0,"
-        "    language       TEXT,"
         "    live_event     TEXT,"
         "    live_event_count TEXT,"
         "    is_cover       BOOLEAN DEFAULT 0,"
         "    is_mashup      BOOLEAN DEFAULT 0,"
-        "    release_time   DATETIME,"
+        "    ori_release_year   INTEGER,"
+        "    ori_release_month   INTEGER,"
+        "    ori_release_day   INTEGER,"
+        "    ori_release_level   INTEGER,"
+        "    release_year   INTEGER,"
+        "    release_month   INTEGER,"
+        "    release_day   INTEGER,"
+        "    release_level   INTEGER,"
         "    created_at     DATETIME DEFAULT CURRENT_TIMESTAMP,"
         "    modified_at     DATETIME DEFAULT CURRENT_TIMESTAMP"
         ");"
@@ -249,17 +270,17 @@ void MusicLibrary::createTables()
 int MusicLibrary::ensureAlbumExists(const SongInfo &songInfo)
 {
     // 如果已指定有效专辑ID且存在
-    if (songInfo.albumId > 0) {
+    if (songInfo.albumID > 0) {
         QSqlQuery checkQuery(m_db);
         checkQuery.prepare("SELECT 1 FROM Albums WHERE album_id = ?");
-        checkQuery.addBindValue(songInfo.albumId);
+        checkQuery.addBindValue(songInfo.albumID);
         if (checkQuery.exec() && checkQuery.next()) {
-            return songInfo.albumId;
+            return songInfo.albumID;
         }
     }
 
     // 需要创建新专辑的检查
-    if (songInfo.albumId == -1) {
+    if (songInfo.albumID == -1) {
         return -1; // 表示不使用专辑
     }
 
@@ -287,187 +308,279 @@ int MusicLibrary::ensureAlbumExists(const SongInfo &songInfo)
     return query.lastInsertId().toInt();
 }
 
+int MusicLibrary::ensureAlbumExists(const AlbumInfo &albumInfo)
+{
+
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return -1;
+    }
+
+    QSqlQuery query(m_db);
+
+    if (!m_db.transaction()) {
+        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    // 专辑名
+    QString albumName = albumInfo.albumName;
+
+    // 专辑演出者
+    QString albumFirstArtist = albumInfo.albumArtists.isEmpty() ? "Unknown" : albumInfo.albumArtists.first();
+    
+
+    // 专辑评分
+    int albumScore = albumInfo.albumScore;
+    
+
+    // 专辑版本
+    QString albumVersion = albumInfo.albumVersion;
+    
+
+    // 发行方，转换为以逗号分隔的字符串
+    QString publisherStr = albumInfo.publishers.join(", ");
+    
+
+    // 流派和语言
+
+    // 专辑发布日期，分别以int的形式存储年月日，使用level区分
+    int albumReleaseYear = albumInfo.albumReleaseTime.date.year();
+    int albumReleaseMonth = albumInfo.albumReleaseTime.date.month();
+    int albumReleaseDay = albumInfo.albumReleaseTime.date.day();
+    int albumReleaseLevel = albumInfo.albumReleaseTime.level;
+    
+
+    // 国家
+    QString countryStr = albumInfo.country;
+    
+
+    // 碟数
+    int totalDiscs = albumInfo.totalDiscs;
+    
+
+    // 演出信息
+    QString liveEvent = albumInfo.liveEvent;
+    QString liveEventCount = albumInfo.liveEventCount;
+    
+
+    // 检查专辑是否存在
+    query.prepare("SELECT album_id FROM Albums WHERE "
+        "album_name = :albumName AND "
+        "album_first_artist = :albumFirstArtist AND "
+        "album_release_year = :albumReleaseYear");
+    query.bindValue(":albumName", albumName);
+    query.bindValue(":albumFirstArtist", albumFirstArtist);
+    query.bindValue(":albumReleaseYear", albumReleaseYear);
+
+    if (!query.exec()) {
+        qWarning() << "Check album existence failed:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+    qDebug() << "Executing query:" << query.lastQuery();
+    qDebug() << "Bound values:" << query.boundValues();
+
+    if (query.next()) {
+        int existingAlbumID = query.value(0).toInt();
+        m_db.commit();
+        qDebug() << "Album already exists:" << existingAlbumID;
+        return existingAlbumID;
+    }
+
+    qDebug() << "ensureAlbumExists --  Name:" << albumName
+         << ", First Artist:" << albumFirstArtist
+         << ", Score:" << albumScore
+         << ", Version:" << albumVersion
+         << ", Publisher:" << publisherStr
+         << ", Release Time:" << albumReleaseYear << "-" << albumReleaseMonth << "-" << albumReleaseDay << " Level:" << albumReleaseLevel
+         << ", Country:" << countryStr
+         << ", Total Discs:" << totalDiscs
+         << ", Live Event:" << liveEvent << " Count:" << liveEventCount;
+
+    // 添加新专辑
+    query.prepare("INSERT INTO Albums ("
+        "album_name, album_first_artist, publisher, album_score, album_version, "
+        "original_release_year, original_release_month, original_release_day, original_release_level, "
+        "album_release_year, album_release_month, album_release_day, album_release_level, "
+        "country, genres, total_discs, "
+        "cover_path, languages, live_event, live_event_count)"
+        "VALUES ("
+        ":albumName, :albumFirstArtist, :publisher, :albumScore, :albumVersion, "
+        ":originalReleaseYear, :originalReleaseMonth, :originalReleaseDay, :originalReleaseLevel, "
+        ":albumReleaseYear, :albumReleaseMonth, :albumReleaseDay, :albumReleaseLevel, "
+        ":country, :genres, :totalDiscs, "
+        ":coverPath, :languages, :liveEvent, :liveEventCount)");
+    query.bindValue(":albumName", albumName);
+    query.bindValue(":albumFirstArtist", albumFirstArtist);
+    query.bindValue(":publisher", publisherStr);
+    query.bindValue(":albumScore", albumScore);
+    query.bindValue(":albumVersion", albumVersion);
+    query.bindValue(":originalReleaseYear", albumInfo.originalReleaseTime.date.year());
+    query.bindValue(":originalReleaseMonth", albumInfo.originalReleaseTime.date.month());
+    query.bindValue(":originalReleaseDay", albumInfo.originalReleaseTime.date.day());
+    query.bindValue(":originalReleaseLevel", albumInfo.originalReleaseTime.level);
+    query.bindValue(":albumReleaseYear", albumReleaseYear);
+    query.bindValue(":albumReleaseMonth", albumReleaseMonth);
+    query.bindValue(":albumReleaseDay", albumReleaseDay);
+    query.bindValue(":albumReleaseLevel", albumReleaseLevel);
+    query.bindValue(":country", countryStr);
+    query.bindValue(":genres", albumInfo.genres.join(", "));
+    query.bindValue(":totalDiscs", totalDiscs);
+    query.bindValue(":coverPath", albumInfo.albumCoverPath);
+    query.bindValue(":languages", albumInfo.languages.join(", "));
+    query.bindValue(":liveEvent", liveEvent);
+    query.bindValue(":liveEventCount", liveEventCount);
+    
+    if (!query.exec()) {
+        if (query.lastError().nativeErrorCode() == "2067") { // SQLite 的唯一性错误代码
+            qDebug() << "Album already exists, skipping insertion.";
+            m_db.rollback();
+            return -1;
+        } else {
+            qWarning() << "Insert album failed:" << query.lastError();
+            m_db.rollback();
+            return -1;
+        }
+    }
+    
+
+    int newAlbumID = query.lastInsertId().toInt();
+    qDebug() << "New album inserted:" << newAlbumID;
+
+    if (!m_db.commit()) {
+        qWarning() << "Commit transaction failed:" << m_db.lastError();
+        return -1;
+    }
+
+    return newAlbumID;
+} 
+
+int MusicLibrary::updateGenre(const int &SongID,const QStringList &genres){
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return -1;
+    }
+
+    if (!m_db.transaction()) {
+        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    QSqlQuery query(m_db);
+
+    // 删除原有流派
+    query.prepare("DELETE FROM Genre WHERE song_id = ?");
+    query.addBindValue(SongID);
+    if (!query.exec()) {
+        qWarning() << "Failed to delete old genres:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+
+    // 插入新流派
+    query.prepare("INSERT INTO Genre (song_id, genre) VALUES (?, ?)");
+    query.addBindValue(SongID);
+    foreach (const QString &genre, genres) {
+        query.addBindValue(genre);
+        if (!query.exec()) {
+            qWarning() << "Failed to insert genre:" << query.lastError();
+            m_db.rollback();
+            return -1;
+        }
+    }
+
+    if (!m_db.commit()) {
+        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    return 0;
+
+}
+
 int MusicLibrary::ensureCharacterExists(const QString &characterName, const QString &foreignName)
 {
+
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return -1;
+    }
+
+    QSqlQuery query(m_db);
+
+    if (!m_db.transaction()) {
+        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
     // 检查输入有效性
     if (characterName.isEmpty() && foreignName.isEmpty()) {
         throw std::runtime_error("Character name and foreign name cannot both be empty");
     }
 
-    // 检查角色是否存在（通过中文名或外文名）
-    QSqlQuery checkQuery(m_db);
-    checkQuery.prepare(
-        "SELECT character_id FROM Characters "
-        "WHERE character_name = ? OR character_foreign_name = ?"
+    // 检查角色是否存在
+    if (characterName.isEmpty() && !foreignName.isEmpty()){
+        query.prepare("SELECT character_id FROM Characters WHERE "
+            "character_name ISNULL and character_foreign_name = :foreignName AND "
+            "overlap_id = 0"
         );
-    checkQuery.addBindValue(characterName.isEmpty() ? foreignName : characterName);
-    checkQuery.addBindValue(foreignName.isEmpty() ? characterName : foreignName);
-
-    if (checkQuery.exec()) {
-        while (checkQuery.next()) {
-            int existingId = checkQuery.value(0).toInt();
-            // 更新外文名或中文名如果存在空值
-            QSqlQuery updateQuery(m_db);
-            if (characterName.isEmpty()) {
-                updateQuery.prepare(
-                    "UPDATE Characters SET character_name = ? "
-                    "WHERE character_id = ?"
-                    );
-                updateQuery.addBindValue(characterName);
-            } else if (foreignName.isEmpty()) {
-                updateQuery.prepare(
-                    "UPDATE Characters SET character_foreign_name = ? "
-                    "WHERE character_id = ?"
-                    );
-                updateQuery.addBindValue(foreignName);
-            }
-            if (!updateQuery.exec()) {
-                qWarning() << "Update character failed:" << updateQuery.lastError();
-            }
-            return existingId;
-        }
-    }
-
-    // 插入新角色
-    QSqlQuery insertQuery(m_db);
-    insertQuery.prepare(
-        "INSERT INTO Characters (character_name, character_foreign_name) "
-        "VALUES (:name, :foreignName)"
+        // query.bindValue(":characterName", characterName.isEmpty() ? QVariant() : characterName);
+        query.bindValue(":foreignName", foreignName.isEmpty() ? QVariant() : foreignName);
+    } else if (!characterName.isEmpty() && foreignName.isEmpty() ){
+        query.prepare("SELECT character_id FROM Characters WHERE "
+            "character_name  = :characterName and character_foreign_name ISNULL AND "
+            "overlap_id = 0"
         );
-    insertQuery.bindValue(":name", characterName.isEmpty() ? QVariant() : characterName);
-    insertQuery.bindValue(":foreignName", foreignName.isEmpty() ? QVariant() : foreignName);
-
-    if (!insertQuery.exec()) {
-        throw std::runtime_error("Insert character failed: " + insertQuery.lastError().text().toStdString());
+        query.bindValue(":characterName", characterName.isEmpty() ? QVariant() : characterName);
+        // query.bindValue(":foreignName", foreignName.isEmpty() ? QVariant() : foreignName);
+    } else if (!characterName.isEmpty() && !foreignName.isEmpty() ){
+        query.prepare("SELECT character_id FROM Characters WHERE "
+            "character_name = :characterName AND "
+            "character_foreign_name = :foreignName AND "
+            "overlap_id = 0");
+            query.bindValue(":characterName", characterName.isEmpty() ? QVariant() : characterName);
+            query.bindValue(":foreignName", foreignName.isEmpty() ? QVariant() : foreignName);
     }
 
-    return insertQuery.lastInsertId().toInt();
-}
-
-bool MusicLibrary::insertSong(const SongInfo &songInfo)
-{
-    QSqlDatabase::database(m_db.connectionName()).transaction();
-
-    try {
-        // 检查文件路径唯一性
-        QSqlQuery checkQuery(m_db);
-        checkQuery.prepare("SELECT COUNT(*) FROM Songs WHERE file_path = ?");
-        checkQuery.addBindValue(songInfo.filePath);
-        if (!checkQuery.exec() || !checkQuery.next()) {
-            throw std::runtime_error("File path check failed: " + checkQuery.lastError().text().toStdString());
-        }
-        if (checkQuery.value(0).toInt() > 0) {
-            throw std::runtime_error("Duplicate file path: " + songInfo.filePath.toStdString());
-        }
-
-        // 检查Album是否已经存在，若存在，则获取对应id，若不存在，则插入Album
-        // 处理专辑信息
-        int albumId = -1;
-        try {
-            albumId = ensureAlbumExists(songInfo);
-        } catch (const std::exception &e) {
-            throw std::runtime_error(std::string("Album validation failed: ") + e.what());
-        }
-
-        // 插入主歌曲信息
-        QSqlQuery songQuery(m_db);
-        songQuery.prepare(
-            "INSERT INTO Songs ("
-            "  title, duration_ms, file_size, file_path, album_id, track_number, disc_number,"
-            "  is_favorite, is_live, is_single, live_event, live_event_count, is_cover,"
-            "  is_mashup, release_time"
-            ") VALUES ("
-            "  :title, :durationMs, :fileSize, :filePath, :albumId, :trackNumber, :discNumber,"
-            "  :isFavorite, :isLive, :isSingle, :liveEvent, :liveEventCount, :isCover,"
-            "  :isMashup, :releaseTime"
-            ")"
-            );
-
-        songQuery.bindValue(":title", songInfo.title);
-        songQuery.bindValue(":durationMs", songInfo.durationMs);
-        songQuery.bindValue(":fileSize", songInfo.fileSize);
-        songQuery.bindValue(":filePath", songInfo.filePath);
-        songQuery.bindValue(":albumId", songInfo.albumId > 0 ? songInfo.albumId : QVariant());
-        songQuery.bindValue(":trackNumber", songInfo.trackNumber);
-        songQuery.bindValue(":discNumber", songInfo.discNumber);
-        songQuery.bindValue(":isFavorite", songInfo.isFavorite);
-        songQuery.bindValue(":isLive", songInfo.isLive);
-        songQuery.bindValue(":isSingle", songInfo.isSingle);
-        songQuery.bindValue(":liveEvent", songInfo.liveEvent);
-        songQuery.bindValue(":liveEventCount", songInfo.liveEventCount);
-        songQuery.bindValue(":isCover", songInfo.isCover);
-        songQuery.bindValue(":isMashup", songInfo.isMashup);
-        songQuery.bindValue(":releaseTime", songInfo.releaseTime);
-
-        if (!songQuery.exec()) {
-            throw std::runtime_error("Insert song failed: " + songQuery.lastError().text().toStdString());
-        }
-
-        const int songId = songQuery.lastInsertId().toInt();
-
-        qDebug() << "Song ID: " << songId;
-
-        // 插入角色关联
-        for (auto it = songInfo.characters.constBegin(); it != songInfo.characters.constEnd(); ++it) {
-            const QString &role = it.key();
-            const QString &characterName = it.value().first;
-            const QString &foreignName = it.value().second;
-
-            try {
-                int charId = ensureCharacterExists(characterName, foreignName);
-
-                QSqlQuery scQuery(m_db);
-                scQuery.prepare(
-                    "INSERT INTO SongCharacters (song_id, character_id, role) "
-                    "VALUES (?, ?, ?)"
-                    );
-                scQuery.addBindValue(songId);
-                scQuery.addBindValue(charId);
-                scQuery.addBindValue(role);
-
-                if (!scQuery.exec()) {
-                    throw std::runtime_error("Insert song-character failed: " + scQuery.lastError().text().toStdString());
-                }
-            } catch (const std::exception &e) {
-                qWarning() << "Failed to process character:" << e.what();
-            }
-        }
-
-        // 插入流派
-        foreach (const QString &genre, songInfo.genres) {
-            QSqlQuery genreQuery(m_db);
-            genreQuery.prepare(
-                "INSERT OR IGNORE INTO Genre (song_id, genre) "
-                "VALUES (?, ?)"
-                );
-            genreQuery.addBindValue(songId);
-            genreQuery.addBindValue(genre);
-            if (!genreQuery.exec()) {
-                throw std::runtime_error("Insert genre failed: " + genreQuery.lastError().text().toStdString());
-            }
-        }
-
-        // 插入语言
-        foreach (const QString &lang, songInfo.languages) {
-            QSqlQuery langQuery(m_db);
-            langQuery.prepare(
-                "INSERT OR IGNORE INTO Language (song_id, language) "  // 注意表名需要修正
-                "VALUES (?, ?)"
-                );
-            langQuery.addBindValue(songId);
-            langQuery.addBindValue(lang);
-            if (!langQuery.exec()) {
-                throw std::runtime_error("Insert language failed: " + langQuery.lastError().text().toStdString());
-            }
-        }
-
-        QSqlDatabase::database(m_db.connectionName()).commit();
-        return true;
-    } catch (const std::exception &e) {
-        qCritical() << "Insert song error:" << e.what();
-        QSqlDatabase::database(m_db.connectionName()).rollback();
-        return false;
+    qDebug() << "Executing query:" << query.lastQuery();
+    qDebug() << "Bound values:" << query.boundValues();
+    
+    if (!query.exec()) {
+        qWarning() << "Check character existence failed:" << query.lastError();
+        m_db.rollback();
+        return -1;
     }
+
+    if (query.next()) {
+        int existingCharacterId = query.value(0).toInt();
+        m_db.commit();
+        return existingCharacterId;
+    }
+
+    // 插入新人名
+    query.prepare("INSERT INTO Characters (character_name, character_foreign_name) "
+                  "VALUES (:characterName, :foreignName)");
+    query.bindValue(":characterName", characterName);
+    query.bindValue(":foreignName", foreignName);
+
+    if (!query.exec()) {
+        qWarning() << "Insert character failed:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+
+    // 获取新插入的 character_id
+    int newCharacterId = query.lastInsertId().toInt();
+    qDebug() << "New character inserted with ID:" << newCharacterId;
+
+    // 提交事务
+    if (!m_db.commit()) {
+        qWarning() << "Commit transaction failed:" << m_db.lastError();
+        return -1;
+    }
+
+    return newCharacterId;
 }
 
 bool MusicLibrary::insertScanResult(const QStringList &musicFiles){
@@ -478,24 +591,492 @@ bool MusicLibrary::insertScanResult(const QStringList &musicFiles){
     }
 
     QSqlQuery query(m_db);
+    
+    // 开启事务（大幅提升插入性能）
+    if (!m_db.transaction()) {
+        qCritical() << "Failed to start transaction:" << m_db.lastError().text();
+        return false;
+    }
+
+    // 使用预处理语句（防止SQL注入，提升性能）
+    query.prepare("INSERT OR IGNORE INTO MusicsFound (music_path) VALUES (:path)");
+    
+    for (const QString &filePath : musicFiles) {
+        query.bindValue(":path", filePath);
+        
+        if (!query.exec()) {
+            qCritical() << "Failed to insert file:" << filePath 
+                       << "Error:" << query.lastError().text();
+            m_db.rollback();  // 回滚事务
+            return false;
+        }
+    }
+
+    // 提交事务
+    if (!m_db.commit()) {
+        qCritical() << "Commit failed:" << m_db.lastError().text();
+        m_db.rollback();
+        return false;
+    }
+
+    qDebug() << "Inserted" << musicFiles.size() << "records (ignored duplicates)";
+    return true;
+}
+
+QStringList MusicLibrary::retrieveMusicFiles() const {
+    QStringList musicFiles;
+
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return musicFiles;
+    }
+
+    QSqlQuery query(m_db);
+    const QString sql = "SELECT music_path FROM MusicsFound";  // 确保表名与插入时一致
+    
+    if (!query.exec(sql)) {
+        qCritical() << "Failed to execute query:" << query.lastError().text();
+        return musicFiles;
+    }
+
+    while (query.next()) {
+        const QString path = query.value("music_path").toString();
+        if (!path.isEmpty()) {  // 可选：过滤空路径
+            musicFiles.append(path);
+        }
+    }
+
+    qDebug() << "Retrieved" << musicFiles.size() << "music files from database";
+    return musicFiles;
+}
+
+bool MusicLibrary::parseInsertResult()
+{
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return false;
+    }
+
+    QStringList musicFiles = retrieveMusicFiles();
+    if (musicFiles.isEmpty()) {
+        qWarning() << "No music files found in database";
+        return false;
+    }
 
     // 读取所有的专辑信息
     QHash albumDatabase = getAlbumsInfo(musicFiles);
     
     // 读取所有的人物信息
+    QHash characterDatabase = getCharactersInfo(musicFiles);
 
     // 向数据库中插入专辑和人物
+    foreach (const AlbumInfo &album, albumDatabase) {
+        int albumID = ensureAlbumExists(album);
+        if (albumID == -1) {
+            qWarning() << "Failed to insert album:" << album.albumName;
+        }
+    }
 
-    // 读取所有的歌曲信息
+    foreach (const CharacterInfo &character, characterDatabase) {
+        int characterID = ensureCharacterExists(character.characterName, character.foreignName);
+        if (characterID == -1) {
+            qWarning() << "Failed to insert character:" << character.characterName;
+        }
+    }
 
-    // 将专辑和人物替换为数据库中的ID
+
+    // 读取所有的歌曲信息，并替换专辑和人物信息为ID
+    QHash songDatabase = getSongsInfo(musicFiles);
 
     // 向数据库中插入歌曲信息
+    foreach (const SongInfo &song, songDatabase) {
+        int songID = ensureSongExists(song);
+        if (songID == -1) {
+            qWarning() << "Failed to insert song:" << song.title;
+        }
+    }
+
     
     return true;
 }
 
-MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath){
+int MusicLibrary::ensureSongExists(const SongInfo &songInfo){
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return -1;
+    }
+
+    QSqlQuery query(m_db);
+
+    if (!m_db.transaction()) {
+        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    qDebug() << "Ensure song exists:" << songInfo.title;
+
+    // 歌曲名
+    QString title = songInfo.title;
+
+    // first artist
+    QString first_artist = songInfo.artists.isEmpty() ? "Unknown" : songInfo.artists.first();
+
+    // 时长
+    int durations = songInfo.durations;
+
+    // 文件大小
+    int file_size = songInfo.fileSize;
+
+    // 文件路径
+    QString file_path = songInfo.filePath;
+
+    // 专辑ID
+    int album_id = songInfo.albumID;
+
+    // 曲目次序
+    int track_number = songInfo.trackNumber;
+    int disc_number = songInfo.discNumber;
+    int total_track_number = songInfo.totalTracks;
+    int total_disc_number = songInfo.totalDiscs;
+
+    // 是否喜爱
+    bool is_favorite = songInfo.isFavorite;
+
+    // 是否现场版
+    bool is_live = songInfo.isLive;
+
+    // 是否单曲
+    bool is_single = songInfo.isSingle;
+
+    // 是否翻唱
+    bool is_cover = songInfo.isCover;
+
+    // 是否串烧
+    bool is_mashup = songInfo.isMashup;
+
+    // 现场演出
+    QString live_event = songInfo.liveEvent;
+    QString live_event_count = songInfo.liveEventCount;
+
+    // 发布时间
+    // 原始发布时间
+    int ori_release_year = songInfo.originalReleaseDate.date.year();
+    int ori_release_month = songInfo.originalReleaseDate.date.month();
+    int ori_release_day = songInfo.originalReleaseDate.date.day();
+    int ori_release_level = songInfo.originalReleaseDate.level;
+
+    // 发布时间
+    int release_year = songInfo.releaseDate.date.year();
+    int release_month = songInfo.releaseDate.date.month();
+    int release_day = songInfo.releaseDate.date.day();
+    int release_level = songInfo.releaseDate.level;
+
+    // 检查歌曲是否存在
+    query.prepare("SELECT song_id FROM Songs WHERE "
+        "file_path = :filePath");
+    query.bindValue(":filePath", file_path);
+
+    qDebug() << "Executing query:" << query.lastQuery();
+    qDebug() << "Bound values:" << query.boundValues();
+
+    if (!query.exec()) {
+        qWarning() << "Check song existence failed:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+    qDebug() << "Executing query:" << query.lastQuery();
+    qDebug() << "Bound values:" << query.boundValues();
+
+    if (query.next()) {
+        int existingSongID = query.value(0).toInt();
+        m_db.commit();
+        qDebug() << "Song already exists:" << existingSongID;
+        return existingSongID;
+    }
+
+    // 添加新歌曲
+
+    query.prepare("INSERT INTO Songs ("
+        "title, durations, first_artist, file_size, file_path, album_id, track_number, disc_number, "
+        "total_track_number, total_disc_number, is_favorite, is_live, is_single, live_event,"
+        "live_event_count, is_cover, is_mashup, ori_release_year, ori_release_month, "
+        "ori_release_day, ori_release_level, release_year, release_month, release_day, release_level"
+        ") VALUES ("
+        ":title, :durations, :first_artist, :file_size, :file_path, :album_id, :track_number, :disc_number, "
+        ":total_track_number, :total_disc_number, :is_favorite, :is_live, :is_single, :live_event,"
+        ":live_event_count, :is_cover, :is_mashup, :ori_release_year, :ori_release_month, "
+        ":ori_release_day, :ori_release_level, :release_year, :release_month, :release_day, :release_level"
+        ")");
+    query.bindValue(":title", title);
+    query.bindValue(":durations", durations);
+    query.bindValue(":first_artist", first_artist);
+    query.bindValue(":file_size", file_size);
+    query.bindValue(":file_path", file_path);
+    query.bindValue(":album_id", album_id);
+    query.bindValue(":track_number", track_number);
+    query.bindValue(":disc_number", disc_number);
+    query.bindValue(":total_track_number", total_track_number);
+    query.bindValue(":total_disc_number", total_disc_number);
+    query.bindValue(":is_favorite", is_favorite);
+    query.bindValue(":is_live", is_live);
+    query.bindValue(":is_single", is_single);
+    query.bindValue(":live_event", live_event); 
+    query.bindValue(":live_event_count", live_event_count);
+    query.bindValue(":is_cover", is_cover);
+    query.bindValue(":is_mashup", is_mashup);
+    query.bindValue(":ori_release_year", ori_release_year);
+    query.bindValue(":ori_release_month", ori_release_month);
+    query.bindValue(":ori_release_day", ori_release_day);
+    query.bindValue(":ori_release_level", ori_release_level);
+    query.bindValue(":release_year", release_year); 
+    query.bindValue(":release_month", release_month);
+    query.bindValue(":release_day", release_day);
+    query.bindValue(":release_level", release_level);
+
+    qDebug() << "Executing query:" << query.lastQuery();
+    qDebug() << "Bound values:" << query.boundValues();
+
+    if (!query.exec()) {
+        if (query.lastError().nativeErrorCode() == "2067") { // SQLite 的唯一性错误代码
+            qDebug() << "Song already exists, skipping insertion.";
+            m_db.rollback();
+            return -1;
+        } else {
+            qWarning() << "Insert song failed:" << query.lastError();
+            m_db.rollback();
+            return -1;
+        }
+    }
+
+    int newSongID = query.lastInsertId().toInt();
+    qDebug() << "New song inserted:" << newSongID;
+
+    // 处理角色关联
+    foreach (const CharacterInfo &character, songInfo.characters) {
+        int characterID = character.characterID;
+        QString role = character.role;
+        int res = pairSongCharacter(newSongID, characterID, role);
+    }
+
+    // 处理流派
+    foreach (const QString &genre, songInfo.genres) {
+        int res = pairSongGenre(newSongID, genre);
+    }
+
+    // 处理语言
+    foreach (const QString &language, songInfo.languages) {
+        int res = pairSongLanguage(newSongID, language);
+    }
+
+
+    if (!m_db.commit()) {
+        qWarning() << "Commit transaction failed:" << m_db.lastError();
+        return -1;
+    }
+
+    return newSongID;
+}
+
+int MusicLibrary::pairSongLanguage(const int &songID, const QString &language){
+
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return -1;
+    }
+
+    if (!m_db.transaction()) {
+        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    QSqlQuery query(m_db);
+
+    query.prepare("INSERT INTO Language (song_id, language) "
+                  "VALUES (:songID, :language)");
+    query.bindValue(":songID", songID);
+    query.bindValue(":language", language);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to insert song-language:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+
+    if (!m_db.commit()) {
+        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    return 0;
+
+}
+
+int MusicLibrary::pairSongGenre(const int &songID, const QString &genre){
+
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return -1;
+    }
+
+    if (!m_db.transaction()) {
+        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    QSqlQuery query(m_db);
+
+    query.prepare("INSERT INTO Genre (song_id, genre) "
+                  "VALUES (:songID, :genre)");
+    query.bindValue(":songID", songID);
+    query.bindValue(":genre", genre);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to insert song-genre:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+
+    if (!m_db.commit()) {
+        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    return 0;
+
+}
+
+int MusicLibrary::pairSongCharacter(const int &songID, const int &characterID, const QString &role){
+
+    if (!m_db.isOpen()) {
+        qCritical() << "Database is not open";
+        return -1;
+    }
+
+    if (!m_db.transaction()) {
+        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    QSqlQuery query(m_db);
+
+    query.prepare("INSERT INTO SongCharacters (song_id, character_id, role) "
+                  "VALUES (:songID, :characterID, :role)");
+    query.bindValue(":songID", songID);
+    query.bindValue(":characterID", characterID);
+    query.bindValue(":role", role);
+
+    if (!query.exec()) {
+        qWarning() << "Failed to insert song-character:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+
+    if (!m_db.commit()) {
+        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    return 0;
+
+}
+
+QHash<QString, MusicLibrary::SongInfo> MusicLibrary::getSongsInfo(const QStringList &musicFiles) {
+    QHash<QString, SongInfo> songDatabase;
+    foreach(const QString& filePath, musicFiles){
+        SongInfo song = readSongInfo(filePath);
+        // 生成唯一键（歌名、专辑ID、首艺术家）
+        // QString key = song.title + "|" + (song.albumID == -1 ? "0" : song.albumID) + "|" + song.artists.first();
+        QString key = song.filePath;
+        // 若存在重复曲目，抛出异常
+        if(songDatabase.contains(key)) {
+            qWarning() << "Duplicate song found:" << song.title << song.albumID << song.artists.first() << song.filePath;
+        } else {
+            songDatabase.insert(key, song);
+        }
+    }
+
+    // 打印出所有Song的信息
+    foreach(const SongInfo& song, songDatabase){
+        qDebug() << "getSongsInfo -- Title: " << song.title << ", album ID: "<< song.albumID << ", 专辑演出者: " << song.artists.first() << ", Path: " <<song.filePath;
+    }
+
+    return songDatabase;
+}
+
+QVector<MusicLibrary::CharacterInfo> MusicLibrary::readCharacterInfo(const QString &filePath, const bool getID){
+    QVector<CharacterInfo> characters;
+
+    TagLib::FileRef file(filePath.toStdString().c_str());
+
+    if(file.isNull() || !file.tag()) {
+        qWarning() << "无法读取文件标签:" << filePath;
+        return characters;
+    }
+
+    TagLib::Tag* tag = file.tag();
+    TagLib::PropertyMap props = file.file()->properties();
+
+    // 演出者
+    QStringList artists = splitString(QString::fromStdString(tag->artist().toCString(true)));
+    for (const QString &artist : artists) {
+        characters.append(CharacterInfo("artist", artist, ""));
+    }
+    // 专辑演出者
+    QStringList albumArtists = splitString(QString::fromStdString(props["ALBUMARTIST"].toString().toCString(true)));
+    for (const QString &albumArtist : albumArtists) {
+        characters.append(CharacterInfo("album_artist", albumArtist, ""));
+    }
+    // 作曲
+    QStringList composers = splitString(QString::fromStdString(props["COMPOSER"].toString().toCString(true)));
+    for (const QString &composer : composers) {
+        characters.append(CharacterInfo("composer", composer, ""));
+    }
+    // 作词
+    QStringList lyricists = splitString(QString::fromStdString(props["LYRICIST"].toString().toCString(true)));
+    for (const QString &lyricist : lyricists) {
+        characters.append(CharacterInfo("lyricist", lyricist, ""));
+    }
+    // 指挥
+    QStringList performers = splitString(QString::fromStdString(props["PERFORMER"].toString().toCString(true)));
+    for (const QString &performer : performers) {
+        characters.append(CharacterInfo("performer", performer, ""));
+    }
+
+    // 尝试获取ID
+    if (getID) {
+        for (CharacterInfo &character : characters) {
+            int characterID = ensureCharacterExists(character.characterName, character.foreignName);
+            if (characterID > 0) {
+                character.characterID = characterID;
+            }
+        }
+    }
+    
+    return characters;
+}
+
+QHash<QString, MusicLibrary::CharacterInfo> MusicLibrary::getCharactersInfo(const QStringList &musicFiles) {
+
+    QHash<QString, CharacterInfo> characterDatabase;
+
+    foreach(const QString& filePath, musicFiles){
+        QVector<CharacterInfo> characters = readCharacterInfo(filePath, false);
+        for (const CharacterInfo& character : characters) {
+            QString key = filePath + "|" + character.characterName + "|" + character.role;
+            characterDatabase.insert(key, character);
+        }
+    }
+
+    // 打印出所有characters的信息
+    foreach(const CharacterInfo& character, characterDatabase){
+        qDebug() << "getCharactersInfo -- Name: " << character.characterName <<  "role: " << character.role;
+    }
+
+    return characterDatabase;
+}
+
+
+MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath, const bool getID = false){
     AlbumInfo album;
 
     TagLib::FileRef file(filePath.toStdString().c_str());
@@ -510,7 +1091,7 @@ MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath){
     // 专辑名
     album.albumName = QString::fromStdString(tag->album().toCString(true));
     // 专辑演出者
-    album.albumArtists << QString::fromStdString(tag->artist().toCString(true));
+    album.albumArtists = splitString(QString::fromStdString(props["ALBUMARTIST"].toString().toCString(true)));
     // 流派
     album.genres = splitString(QString::fromStdString(tag->genre().toCString(true)));
 
@@ -530,12 +1111,11 @@ MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath){
         albumreleasedate.level = 1;  
         album.albumReleaseTime = albumreleasedate;
     } 
-    if (!props["DATE"].isEmpty()) {
-        // 从DATE中读取时间
-        QString dateString = QString::fromStdString(props["DATE"].toString().toCString(true));
+    if (!props["RDATE"].isEmpty()) {
+        // 从RDATE中读取时间
+        QString dateString = QString::fromStdString(props["RDATE"].toString().toCString(true));
         album.albumReleaseTime = formatDate(dateString);  
     }
-    // album.albumReleaseTime = QDateTime::fromString(QString::fromStdString(tag->year()), "yyyy");
 
     // 国家
     album.country = QString::fromStdString(props["COUNTRY"].toString().toCString(true));
@@ -557,6 +1137,14 @@ MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath){
     album.liveEvent = QString::fromStdString(props["LIVEEVENT"].toString().toCString(true));
     album.liveEventCount = QString::fromStdString(props["LIVEEVENTCOUNT"].toString().toCString(true));
     
+    // 尝试获取albumID
+    if (getID) {
+        int albumID = ensureAlbumExists(album);
+        if (albumID > 0) {
+            album.albumID = albumID;
+        }
+    }
+
     return album;
 }
 
@@ -605,15 +1193,113 @@ MusicLibrary::DateInfo MusicLibrary::formatDate(const QString &dateString){
 MusicLibrary::SongInfo MusicLibrary::readSongInfo(const QString &filePath){
     SongInfo song;
 
+    AlbumInfo album = readAlbumInfo(filePath, true);
+    QVector<CharacterInfo> characters = readCharacterInfo(filePath, true);
+
     TagLib::FileRef file(filePath.toStdString().c_str());
 
     if(file.isNull() || !file.tag()) {
         qWarning() << "无法读取文件标签:" << filePath;
         return song;
     }
-
     TagLib::Tag* tag = file.tag();
     TagLib::PropertyMap props = file.file()->properties();
+    // 标题
+    song.title = QString::fromStdString(tag->title().toCString(true));
+    // 专辑ID
+    song.albumID = album.albumID;
+    // 文件信息
+    // 时长
+    song.durations = file.audioProperties()->lengthInSeconds();
+    // 文件大小
+    song.fileSize = file.file()->length();
+    // 文件路径
+    song.filePath = filePath;
+    
+    // 歌手
+    // 后期改为从characters中获取
+    song.artists = splitString(QString::fromStdString(tag->artist().toCString(true)));
+
+    // 碟片信息
+    // 碟片号
+    song.discNumber = props.value("DISCNUMBER").toString().toInt();
+    song.totalDiscs = props.value("TOTALDISCS").toString().toInt();
+    
+    // 曲目号
+    song.trackNumber = props.value("TRACKNUMBER").toString().toInt();
+    song.totalTracks = props.value("TOTALTRACKS").toString().toInt();
+    
+
+    // 是否喜爱
+    // FAVORITE、LOVE RATING、LOVE任意一个标签中有值则为喜爱
+    song.isFavorite = !props["FAVORITE"].isEmpty() || !props["LOVERATING"].isEmpty() || !props["LOVE"].isEmpty();
+
+    // 是否现场
+    // LIVE标签有值则为现场
+    song.isLive = !props["LIVE"].isEmpty();
+
+    // 是否单曲
+    // SINGLE标签有值则为单曲
+    song.isSingle = !props["SINGLE"].isEmpty();
+    
+
+    // 是否串烧
+    // MASHUP标签有值则为串烧
+    song.isMashup = !props["MASHUP"].isEmpty();
+
+    // 是否翻唱
+    // COVER标签有值则为翻唱
+    song.isCover = !props["COVER"].isEmpty();
+    
+    
+    // Date
+    // 发行时间
+    unsigned int year = tag->year();
+    if (year > 0) {
+        MusicLibrary::DateInfo releaseDate;
+        releaseDate.date = QDate(year, 1, 1);
+        releaseDate.level = 1;  
+        song.releaseDate = releaseDate;
+    } 
+    if (!props["RDATE"].isEmpty()) {
+        // 从RDATE中读取时间
+        QString dateString = QString::fromStdString(props["RDATE"].toString().toCString(true));
+        song.releaseDate = formatDate(dateString);  
+    }
+    
+    // 原版发行时间
+    // 从ORDATE中读取时间
+    if (!props["ORDATE"].isEmpty()) {
+        QString dateString = QString::fromStdString(props["ORDATE"].toString().toCString(true));
+        song.originalReleaseDate = formatDate(dateString);
+    }
+    
+
+    song.characters = characters;
+
+    // 语言
+    song.languages = splitString(QString::fromStdString(props["LANGUAGE"].toString().toCString(true)));
+
+    // 流派
+    song.genres = splitString(QString::fromStdString(tag->genre().toCString(true)));
+
+    qDebug() << "readSongInfo --" 
+        << "Title:" << song.title
+         << ", albumID:" << song.albumID
+         << ", duration:" << song.durations
+         << ", fileSize:" << song.fileSize
+         << ", filePath:" << song.filePath
+         << ", discNumber:" << song.discNumber
+         << ", totalDiscs:" << song.totalDiscs
+         << ", trackNumber:" << song.trackNumber
+         << ", totalTracks:" << song.totalTracks
+         << ", isFavorite:" << song.isFavorite
+         << ", isLive:" << song.isLive
+         << ", isSingle:" << song.isSingle
+         << ", isMashup:" << song.isMashup
+         << ", isCover:" << song.isCover
+         << ", releaseDate:" << song.releaseDate.toString()
+         << ", originalReleaseDate:" << song.originalReleaseDate.toString();
 
     return song;
 }
@@ -647,7 +1333,7 @@ QHash<QString, MusicLibrary::AlbumInfo> MusicLibrary::getAlbumsInfo(const QStrin
     QHash<QString, AlbumInfo> albumDatabase;
 
     foreach(const QString& filePath, musicFiles){
-        AlbumInfo album = readAlbumInfo(filePath);
+        AlbumInfo album = readAlbumInfo(filePath, false);
 
         // 生成唯一键（专辑名+首艺术家）
         QString key = album.albumName + "|" + (album.albumArtists.isEmpty() ? "Unknown" : album.albumArtists.first());
@@ -672,18 +1358,18 @@ QHash<QString, MusicLibrary::AlbumInfo> MusicLibrary::getAlbumsInfo(const QStrin
 
     // 打印出所有Album的信息
     foreach(const AlbumInfo& album, albumDatabase){
-        qDebug() << "Album Name: " << album.albumName;
-        qDebug() << "Album Artists: " << album.albumArtists;
-        qDebug() << "Album Version: " << album.albumVersion;
-        qDebug() << "Album Release Time: " << album.albumReleaseTime.toString();
-        qDebug() << "Original Release Time: " << album.originalReleaseTime.toString();
-        qDebug() << "Country: " << album.country;
-        qDebug() << "Total Tracks: " << album.tracksCounts;
-        qDebug() << "Tracks Titles: " << album.tracksTitles;
-        qDebug() << "Genres: " << album.genres;
-        qDebug() << "Languages: " << album.languages;
-        qDebug() << "Live Event: " << album.liveEvent;
-        qDebug() << "Live Event Count: " << album.liveEventCount;
+        qDebug() << "getAlbumsInfo -- Name:" << album.albumName
+        << ", Artists:" << album.albumArtists
+        << ", Version:" << album.albumVersion
+        << ", Release Time:" << album.albumReleaseTime.toString()
+        << ", Original Release Time:" << album.originalReleaseTime.toString()
+        << ", Country:" << album.country
+        << ", Total Tracks:" << album.tracksCounts
+        << ", Tracks Titles:" << album.tracksTitles
+        << ", Genres:" << album.genres
+        << ", Languages:" << album.languages
+        << ", Live Event:" << album.liveEvent
+        << ", Live Event Count:" << album.liveEventCount;
     }
 
     return albumDatabase;
@@ -691,20 +1377,52 @@ QHash<QString, MusicLibrary::AlbumInfo> MusicLibrary::getAlbumsInfo(const QStrin
 
 
 
-std::vector<MusicLibrary::SongItem> MusicLibrary::getAllSongs()
-{
+// std::vector<MusicLibrary::SongItem> MusicLibrary::getAllSongs()
+// {
+//     std::vector<SongItem> songs;
+
+//     QSqlQuery query(m_db);
+//     query.prepare(
+//         "SELECT s.title, s.durations, s.file_path, "
+//         "GROUP_CONCAT(DISTINCT c.character_name) AS artists "
+//         "FROM Songs s "
+//         "LEFT JOIN SongCharacters sc ON s.song_id = sc.song_id "
+//         "LEFT JOIN Characters c ON sc.character_id = c.character_id "
+//         "WHERE sc.role = 'performer' "
+//         "GROUP BY s.song_id"
+//         );
+
+//     if (!query.exec()) {
+//         throw std::runtime_error(query.lastError().text().toStdString());
+//     }
+
+//     while (query.next()) {
+//         SongItem song;
+//         song.title = query.value("title").toString();
+//         song.duration = query.value("durations").toInt();
+//         song.filePath = query.value("file_path").toString();
+//         song.artists = query.value("artists").toString().split(",");
+//         songs.push_back(song);
+//     }
+
+//     return songs;
+// }
+
+std::vector<MusicLibrary::SongItem> MusicLibrary::getAllSongs() {
     std::vector<SongItem> songs;
 
     QSqlQuery query(m_db);
     query.prepare(
-        "SELECT s.title, s.duration_ms, s.file_path, "
-        "GROUP_CONCAT(DISTINCT c.character_name) AS artists "
+        "SELECT s.song_id, s.title, s.durations, s.file_path, a.album_name, "
+        "GROUP_CONCAT(DISTINCT g.genre) AS genres, "
+        "GROUP_CONCAT(DISTINCT c.character_name || ':' || sc.role) AS characters "
         "FROM Songs s "
+        "LEFT JOIN Albums a ON s.album_id = a.album_id "
         "LEFT JOIN SongCharacters sc ON s.song_id = sc.song_id "
         "LEFT JOIN Characters c ON sc.character_id = c.character_id "
-        "WHERE sc.role = 'performer' "
+        "LEFT JOIN Genre g ON s.song_id = g.song_id "
         "GROUP BY s.song_id"
-        );
+    );
 
     if (!query.exec()) {
         throw std::runtime_error(query.lastError().text().toStdString());
@@ -713,9 +1431,24 @@ std::vector<MusicLibrary::SongItem> MusicLibrary::getAllSongs()
     while (query.next()) {
         SongItem song;
         song.title = query.value("title").toString();
-        song.durationMs = query.value("duration_ms").toInt();
+        song.duration = query.value("durations").toInt(); // Assuming duration is in seconds
         song.filePath = query.value("file_path").toString();
-        song.artists = query.value("artists").toString().split(",");
+
+        QStringList artistRolePairs = query.value("characters").toString().split(",");
+        QMap<QString, QStringList> roleMap;
+        for (const QString &pair : artistRolePairs) {
+            QStringList parts = pair.split(":");
+            if (parts.size() == 2) {
+                QString name = parts[0].trimmed();
+                QString role = parts[1].trimmed();
+                roleMap[name].append(role);
+            }
+        }
+
+        for (auto it = roleMap.begin(); it != roleMap.end(); ++it) {
+            song.artists.append(it.key() + " (" + it.value().join(", ") + ")");
+        }
+
         songs.push_back(song);
     }
 

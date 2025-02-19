@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QDebug>
 #include <QMessageBox>
+#include <QPushButton>
 
 #include "app/util/Config/musiclibrary.h"
 
@@ -25,6 +26,8 @@ private:
     QListView *listView;
     QStandardItemModel *model;
     MusicLibrary &musicLib;
+
+    QPushButton *refreshButton;
 
 private slots:
     void onItemClicked(const QModelIndex &index);

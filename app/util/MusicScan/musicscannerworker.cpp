@@ -42,6 +42,7 @@ void MusicScannerWorker::doScan(const QStringList &musicFolders, int maxFiles) {
     try {
         // 扫描结束，将扫描到的临时文件存入数据库
         musicLib.insertScanResult(musicFiles);
+        musicLib.parseInsertResult();
         qDebug() << "Total music files:" << musicFiles.count();
         emit scanMusicFinished(musicFiles.count());
 

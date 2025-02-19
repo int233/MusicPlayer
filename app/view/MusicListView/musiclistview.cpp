@@ -22,9 +22,14 @@ void MusicListView::setupUI()
     listView->setModel(model);
     listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
+    // 刷新按钮
+    QPushButton *refreshButton = new QPushButton("刷新", this);
+    connect(refreshButton, &QPushButton::clicked, this, &MusicListView::refreshMusicList);
+
     // 布局
     mainLayout->addWidget(titleLabel);
     mainLayout->addWidget(listView);
+    mainLayout->addWidget(refreshButton);
 
     // 连接点击信号
     connect(listView, &QListView::clicked, this, &MusicListView::onItemClicked);
@@ -35,9 +40,8 @@ void MusicListView::loadMusicData()
     model->clear();
 
     try {
-        // 获取所有歌曲信息（需要在MusicLibrary中添加实现）
+        // 获取所有歌曲信息
         auto songs = musicLib.getAllSongs();
-
         for (const auto &song : songs) {
             QStandardItem *item = new QStandardItem();
 
@@ -45,7 +49,7 @@ void MusicListView::loadMusicData()
             QString displayText = QString("%1\n艺术家: %2\n时长: %3")
                                       .arg(song.title)
                                       .arg(song.artists.join(", "))
-                                      .arg(QTime::fromMSecsSinceStartOfDay(song.durationMs).toString("mm:ss"));
+                                      .arg(QTime::fromMSecsSinceStartOfDay(song.duration*1000).toString("mm:ss"));
 
             item->setText(displayText);
             item->setData(song.filePath, Qt::UserRole); // 存储文件路径
@@ -66,6 +70,7 @@ void MusicListView::onItemClicked(const QModelIndex &index)
 {
     QString filePath = index.data(Qt::UserRole).toString();
     qDebug() << "选中歌曲路径:" << filePath;
+    
 
 }
 

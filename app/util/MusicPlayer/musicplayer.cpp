@@ -24,7 +24,6 @@ MusicPlayer::MusicPlayer(QObject *parent)
 
 MusicPlayer::~MusicPlayer()
 {
-    // 资源由 QObject 自动管理，显式删除不是必需的
     delete audioOutput;
 }
 
