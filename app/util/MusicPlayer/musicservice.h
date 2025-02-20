@@ -8,14 +8,15 @@
 #include <QSlider>
 #include <QTimeEdit>
 #include <QDebug>
+#include <QUrl>
 
 #include "app/util/Config/configmanager.h"
 
-class MuiscService : public QMediaPlayer
+class MusicService : public QMediaPlayer
 {
     Q_OBJECT
 public:
-    static MuiscService& instance();
+    static MusicService& instance();
     ~MusicService();
 
     // 设置音乐文件的 URL

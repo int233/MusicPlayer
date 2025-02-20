@@ -48,6 +48,8 @@ endfunction()
 scan_sources("app" INTMUSIC_SOURCES)
 add_executable(IntMusic ${INTMUSIC_SOURCES})
 
+qt_add_resources(RESOURCES resources.qrc)
+
 qt_add_translations(
     TARGETS IntMusic
     TS_FILES IntMusic_zh_CN.ts

@@ -1,0 +1,20 @@
+#ifndef SMARTPLAYLIST_H
+#define SMARTPLAYLIST_H
+
+#include "playlist.h"
+
+class SmartPlayList : public PlayList
+{
+    Q_OBJECT
+public:
+    explicit SmartPlayList(const QString& name, QObject* parent = nullptr);
+    bool isSmart() const override { return true; }
+
+    virtual void updateSmartRules(const QJsonObject& rules) = 0;
+    virtual void refreshSongs() = 0;
+
+protected:
+
+};
+
+#endif

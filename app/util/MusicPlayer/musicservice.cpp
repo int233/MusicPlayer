@@ -17,7 +17,7 @@ MusicService::~MusicService()
 }
 
 void MusicService::setAudioSource(const QString &musicPath){
-    QMediaPlayer::setSource(QURL::fromLocalFile(musicPath));
+    QMediaPlayer::setSource(QUrl::fromLocalFile(musicPath));
 }
 void MusicService::setAudioSource(const QUrl &musicPath){
     QMediaPlayer::setSource(musicPath);
@@ -38,16 +38,12 @@ void MusicService::stop()
     QMediaPlayer::stop();
 }
 
-void MuiscService::onMediaStatusChanged(QMediaPlayer::MediaStatus status)
+void MusicService::onMediaStatusChanged(QMediaPlayer::MediaStatus status)
 {
     if (status == QMediaPlayer::LoadedMedia) {
         qint64 durationMs = this->duration();
         qDebug() << "Media loaded. Duration (ms):" << durationMs;
 
-        if (miniPlayerProgress) {
-            miniPlayerProgress->setMaximum(static_cast<int>(durationMs / 1000));
-            MuiscService::initProgressBar(durationMs, 0);
-        }
     } else if (status == QMediaPlayer::InvalidMedia) {
         qDebug() << "Failed to load media.";
     }

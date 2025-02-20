@@ -112,6 +112,7 @@ public:
         QString characterName;
         QString foreignName;
         QString role;
+
         CharacterInfo(const QString& role,const QString& name, const QString& foreign)
         : role(role){
             // 检查是否仅有一个值有内容
@@ -149,12 +150,13 @@ public:
     };
 
     struct SongInfo {
+        int songID = -1;
         QString title;
         QStringList artists;
         // 时长(s)
-        int durations;
+        int durations = -1;
         // 文件大小(KB)
-        int fileSize;
+        int fileSize = -1;
         QString filePath;
         // 专辑ID: 单曲设置为0，存在专辑则设置为专辑ID
         int albumID = -1;
@@ -183,27 +185,57 @@ public:
         DateInfo originalReleaseDate;
         // RDATE
         DateInfo releaseDate;
-        QVector<CharacterInfo> characters; // key: role, value: (characterName, foreignName)
+        QVector<CharacterInfo> characters;
         // tag->genre()
         QStringList genres;
         // LANGUAGE
         // file.file()->properties()["LANGUAGE"]
         QStringList languages;
+
+        QStringList getCharacters(const QString &role, bool foreign = false){
+            QStringList result;
+            for (const MusicLibrary::CharacterInfo &character : characters) {
+                if (character.role == role) {
+                    bool hasName = !character.characterName.isEmpty();
+                    bool hasForeign = !character.foreignName.isEmpty();
+
+                    if (hasName && hasForeign) {
+                        result.append(foreign ? character.foreignName : character.characterName);
+                    } else {
+                        QString name = hasName ? character.characterName : character.foreignName;
+                        if (!name.isEmpty()) {
+                            result.append(name);
+                        }
+                    }
+                }
+            }
+            return result;
+        }
     };
 
     struct SongItem {
+        int songID = -1;
         QString title;
         QStringList artists;
         int duration;
+        int albumID = -1;
         QString album;
         QString filePath;
     };
 
     // 返回歌曲
     std::vector<SongItem> getAllSongs();
+    // 从数据库中根据文件路径查找单个歌曲并返回信息
+    MusicLibrary::SongInfo getSingleSong(const QString &path);
+    // 从数据库中根据歌曲ID查找单个歌曲并返回信息
+    MusicLibrary::SongInfo getSingleSong(const int &songID);
+    // 从数据库中根据歌曲ID查找歌曲对应的人物
+    QVector<MusicLibrary::CharacterInfo> getSongCharacters(const int &songID);
 
-    // 插入歌曲
-    // bool insertSong(const SongInfo &songInfo);
+
+    // 插入和更新歌单
+    bool insertPlayList(const QString &name, const QVector<int> &songIDs);
+    QVector<int> loadPlayList(const QString &name);
 
     // 插入扫描结果
     bool insertScanResult(const QStringList &musicFiles);
@@ -235,6 +267,8 @@ private:
 
     // 数据库连接配置
     static constexpr const char* DB_CONNECTION_NAME = "MUSIC_LIB_CONN";
+    // 检查表是否存在
+    bool tableExists(const QString &tableName);
 
     // 插入角色
     int ensureCharacterExists(const QString &characterName, const QString &foreignName);
@@ -257,11 +291,11 @@ private:
     QVector<CharacterInfo> readCharacterInfo(const QString &filePath, const bool getID);
     MusicLibrary::SongInfo readSongInfo(const QString &filePath);
     // 扫描专辑信息
-    QHash<QString, AlbumInfo> getAlbumsInfo(const QStringList &musicFiles);
+    QHash<QString, MusicLibrary::AlbumInfo> getAlbumsInfo(const QStringList &musicFiles);
     // 扫描人物信息
-    QHash<QString, CharacterInfo> getCharactersInfo(const QStringList &musicFiles);
+    QHash<QString, MusicLibrary::CharacterInfo> getCharactersInfo(const QStringList &musicFiles);
     // 扫描歌曲信息
-    QHash<QString, SongInfo> getSongsInfo(const QStringList &musicFiles);
+    QHash<QString, MusicLibrary::SongInfo> getSongsInfo(const QStringList &musicFiles);
 
     // 为歌曲更新流派
     int updateGenre(const int &SongID,const QStringList &genres);
