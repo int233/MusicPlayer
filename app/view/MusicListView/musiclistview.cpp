@@ -1,7 +1,8 @@
 #include "musiclistview.h"
+#include "app/util/Config/musicdatastruct.h"
 
 MusicListView::MusicListView(QWidget *parent)
-    : QWidget(parent), musicLib(MusicLibrary::instance())
+    : QWidget(parent), musicLib(MusicLibrary::instance()),plManager(PlayListManager::instance())
 {
     setupUI();
     loadMusicData();
@@ -39,23 +40,42 @@ void MusicListView::loadMusicData()
 {
     model->clear();
 
+    QString debugTitle = "loadMusicData";
+
+    qDebug() << debugTitle << ";";
+
     try {
         // 获取所有歌曲信息
-        auto songs = musicLib.getAllSongs();
-        for (const auto &song : songs) {
+        PlayListInfo allSongsPlayListInfo = plManager.GetPlayList();
+        QHash<int, SongInfo> allSongs = allSongsPlayListInfo.playlist->getSongs();
+
+        for(const SongInfo& song : allSongs){
+            qDebug() << debugTitle << " - Title: " << song.title << ", album ID: "<< song.albumID << ", 专辑演出者: " << song.artists.first() << ", Path: " <<song.filePath;\
             QStandardItem *item = new QStandardItem();
-
-            // 格式化显示信息
             QString displayText = QString("%1\n艺术家: %2\n时长: %3")
-                                      .arg(song.title)
-                                      .arg(song.artists.join(", "))
-                                      .arg(QTime::fromMSecsSinceStartOfDay(song.duration*1000).toString("mm:ss"));
-
+                                                .arg(song.title)
+                                                .arg(song.artists.join(", "))
+                                                .arg(QTime::fromMSecsSinceStartOfDay(song.durations*1000).toString("mm:ss"));
             item->setText(displayText);
             item->setData(song.filePath, Qt::UserRole); // 存储文件路径
 
             model->appendRow(item);
         }
+
+        // for (const auto &song : songs) {
+        //     QStandardItem *item = new QStandardItem();
+
+        //     // 格式化显示信息
+        //     QString displayText = QString("%1\n艺术家: %2\n时长: %3")
+        //                               .arg(song.title)
+        //                               .arg(song.artists.join(", "))
+        //                               .arg(QTime::fromMSecsSinceStartOfDay(song.duration*1000).toString("mm:ss"));
+
+        //     item->setText(displayText);
+        //     item->setData(song.filePath, Qt::UserRole); // 存储文件路径
+
+        //     model->appendRow(item);
+        // }
     } catch (const std::exception &e) {
         QMessageBox::critical(this, "错误", QString("加载音乐数据失败: %1").arg(e.what()));
     }

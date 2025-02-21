@@ -256,7 +256,8 @@ void MusicLibrary::createTables()
             qWarning() << "Failed to create table RoleCategories:" << query.lastError();
             return;
         }
-        QFile file(":/resources/rolecategories.txt");
+        qDebug() << "Existing resources:" << QDir(":/").entryList();
+        QFile file(":/resource/rolecategories.txt");
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             qWarning() << "Could not open rolecategories.txt:" << file.errorString();
             return;
@@ -289,7 +290,7 @@ void MusicLibrary::createTables()
         "CREATE TABLE IF NOT EXISTS SongCharacters ("
         "    song_id        INTEGER REFERENCES Songs(song_id) ON DELETE CASCADE,"
         "    character_id   INTEGER REFERENCES Characters(character_id) ON DELETE CASCADE,"
-        "    role           TEXT REFERENCES RoleCategories(role),"
+        "    role           TEXT,"
         "    PRIMARY KEY (song_id, character_id, role)"
         ");"
         );
@@ -297,7 +298,7 @@ void MusicLibrary::createTables()
     // SongMetadata
     // Genre
     query.exec(
-        "CREATE TABLE IF NOT EXISTS Genre ("
+        "CREATE TABLE IF NOT EXISTS SongGenres ("
         "    song_id        INTEGER REFERENCES Songs(song_id) ON DELETE CASCADE,"
         "    genre          TEXT,"
         "    PRIMARY KEY (song_id, genre)"
@@ -306,7 +307,7 @@ void MusicLibrary::createTables()
 
     // Language
     query.exec(
-        "CREATE TABLE IF NOT EXISTS Language ("
+        "CREATE TABLE IF NOT EXISTS SongLanguages ("
         "    song_id        INTEGER REFERENCES Songs(song_id) ON DELETE CASCADE,"
         "    language          TEXT,"
         "    PRIMARY KEY (song_id, language)"
@@ -317,16 +318,24 @@ void MusicLibrary::createTables()
     // 歌单信息
     query.exec(
         "CREATE TABLE IF NOT EXISTS PlayList ("
-        "    playlist_id        INTEGER REFERENCES Songs(song_id) ON DELETE CASCADE,"
-        "    name          TEXT UNIQUE,"
+        "    playlist_id        INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "    name          TEXT UNIQUE"
         ");"
         );
+    // 初始的歌单信息
+    if (!query.exec(
+        "INSERT OR IGNORE INTO PlayList (playlist_id, name) VALUES "
+        "(0, 'AllSongs'), (1, 'TempSongs');"
+    )) {
+        qDebug() << "Insert data error:" << query.lastError();
+    }
+    
 
     // 歌单和歌曲的关系
     query.exec(
         "CREATE TABLE IF NOT EXISTS SongsPlayList ("
         "    playlist_id       INTEGER REFERENCES PlayList(playlist_id) ON DELETE CASCADE,"
-        "    song_id          INTEGER REFERENCES Songs(song_id) ON DELETE CASCADE,"
+        "    song_id          INTEGER REFERENCES Songs(song_id) ON DELETE CASCADE"
         ");"
         );
 
@@ -756,7 +765,7 @@ bool MusicLibrary::parseInsertResult()
 
 
     // 读取所有的歌曲信息，并替换专辑和人物信息为ID
-    QHash songDatabase = getSongsInfo(musicFiles);
+    QHash songDatabase = getSongsInfoBymusicFIles(musicFiles);
 
     // 向数据库中插入歌曲信息
     foreach (const SongInfo &song, songDatabase) {
@@ -766,24 +775,26 @@ bool MusicLibrary::parseInsertResult()
         }
     }
 
-    
     return true;
 }
 
 int MusicLibrary::ensureSongExists(const SongInfo &songInfo){
+
+    QString debugTitle = "ensureSongExists";
+
     if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
+        qCritical() << debugTitle << " - Database is not open";
         return -1;
     }
 
     QSqlQuery query(m_db);
 
     if (!m_db.transaction()) {
-        qWarning() << "Failed to start transaction:" << m_db.lastError();
+        qWarning() << debugTitle << " - Failed to start transaction:" << m_db.lastError();
         return -1;
     }
 
-    qDebug() << "Ensure song exists:" << songInfo.title;
+    qDebug() << debugTitle << " - Ensure song exists:" << songInfo.title;
 
     // 歌曲名
     QString title = songInfo.title;
@@ -846,21 +857,19 @@ int MusicLibrary::ensureSongExists(const SongInfo &songInfo){
         "file_path = :filePath");
     query.bindValue(":filePath", file_path);
 
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.exec()) {
-        qWarning() << "Check song existence failed:" << query.lastError();
+        qWarning() << debugTitle << " - Check song existence failed:" << query.lastError();
         m_db.rollback();
         return -1;
     }
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
 
     if (query.next()) {
         int existingSongID = query.value(0).toInt();
         m_db.commit();
-        qDebug() << "Song already exists:" << existingSongID;
+        qDebug() << debugTitle << " - Song already exists:" << existingSongID;
         return existingSongID;
     }
 
@@ -903,23 +912,28 @@ int MusicLibrary::ensureSongExists(const SongInfo &songInfo){
     query.bindValue(":release_day", release_day);
     query.bindValue(":release_level", release_level);
 
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.exec()) {
         if (query.lastError().nativeErrorCode() == "2067") { // SQLite 的唯一性错误代码
-            qDebug() << "Song already exists, skipping insertion.";
+            qDebug() << debugTitle << " - Song already exists, skipping insertion.";
             m_db.rollback();
             return -1;
         } else {
-            qWarning() << "Insert song failed:" << query.lastError();
+            qWarning() << debugTitle << " - Insert song failed:" << query.lastError();
             m_db.rollback();
             return -1;
         }
     }
 
     int newSongID = query.lastInsertId().toInt();
-    qDebug() << "New song inserted:" << newSongID;
+    qDebug() << debugTitle << " - New song inserted:" << newSongID;
+
+    if (!m_db.commit()) {
+        qWarning() << debugTitle << " - Commit transaction failed:" << m_db.lastError();
+        return -1;
+    }
 
     // 处理角色关联
     foreach (const CharacterInfo &character, songInfo.characters) {
@@ -937,43 +951,41 @@ int MusicLibrary::ensureSongExists(const SongInfo &songInfo){
     foreach (const QString &language, songInfo.languages) {
         int res = pairSongLanguage(newSongID, language);
     }
-
-
-    if (!m_db.commit()) {
-        qWarning() << "Commit transaction failed:" << m_db.lastError();
-        return -1;
-    }
-
     return newSongID;
 }
 
 int MusicLibrary::pairSongLanguage(const int &songID, const QString &language){
 
-    if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
-        return -1;
-    }
+    QString debugTitle = "pairSongLanguage";
 
-    if (!m_db.transaction()) {
-        qWarning() << "Failed to start transaction:" << m_db.lastError();
+    if (!m_db.isOpen()) {
+        qCritical() << debugTitle << " - Database is not open";
         return -1;
     }
 
     QSqlQuery query(m_db);
 
-    query.prepare("INSERT INTO Language (song_id, language) "
+    if (!m_db.transaction()) {
+        qWarning() << debugTitle << " - Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    query.prepare("INSERT INTO SongLanguages (song_id, language) "
                   "VALUES (:songID, :language)");
     query.bindValue(":songID", songID);
     query.bindValue(":language", language);
 
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
+
     if (!query.exec()) {
-        qWarning() << "Failed to insert song-language:" << query.lastError();
+        qWarning() << debugTitle << " - Failed to insert song-language:" << query.lastError();
         m_db.rollback();
         return -1;
     }
 
     if (!m_db.commit()) {
-        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        qWarning() << debugTitle << " - Failed to commit transaction:" << m_db.lastError();
         return -1;
     }
 
@@ -983,31 +995,36 @@ int MusicLibrary::pairSongLanguage(const int &songID, const QString &language){
 
 int MusicLibrary::pairSongGenre(const int &songID, const QString &genre){
 
-    if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
-        return -1;
-    }
+    QString debugTitle = "pairSongGenre";
 
-    if (!m_db.transaction()) {
-        qWarning() << "Failed to start transaction:" << m_db.lastError();
+    if (!m_db.isOpen()) {
+        qCritical() << debugTitle << " - Database is not open";
         return -1;
     }
 
     QSqlQuery query(m_db);
 
-    query.prepare("INSERT INTO Genre (song_id, genre) "
+    if (!m_db.transaction()) {
+        qWarning() << debugTitle << " - Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
+    query.prepare("INSERT INTO SongGenres (song_id, genre) "
                   "VALUES (:songID, :genre)");
     query.bindValue(":songID", songID);
     query.bindValue(":genre", genre);
 
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
+
     if (!query.exec()) {
-        qWarning() << "Failed to insert song-genre:" << query.lastError();
+        qWarning() << debugTitle << " - Failed to insert song-genre:" << query.lastError();
         m_db.rollback();
         return -1;
     }
 
     if (!m_db.commit()) {
-        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        qWarning() << debugTitle << " - Failed to commit transaction:" << m_db.lastError();
         return -1;
     }
 
@@ -1017,32 +1034,38 @@ int MusicLibrary::pairSongGenre(const int &songID, const QString &genre){
 
 int MusicLibrary::pairSongCharacter(const int &songID, const int &characterID, const QString &role){
 
-    if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
-        return -1;
-    }
+    QString debugTitle = "pairSongCharacter";
 
-    if (!m_db.transaction()) {
-        qWarning() << "Failed to start transaction:" << m_db.lastError();
+    if (!m_db.isOpen()) {
+        qCritical() <<  debugTitle << " - Database is not open";
         return -1;
     }
 
     QSqlQuery query(m_db);
 
+    if (!m_db.transaction()) {
+        qWarning() << debugTitle << " - Failed to start transaction:" << m_db.lastError();
+        return -1;
+    }
+
     query.prepare("INSERT INTO SongCharacters (song_id, character_id, role) "
-                  "VALUES (:songID, :characterID, :role)");
-    query.bindValue(":songID", songID);
-    query.bindValue(":characterID", characterID);
-    query.bindValue(":role", role);
+                  "VALUES (?, ?, ?)");
+    query.bindValue(0,songID); 
+    query.bindValue(1,characterID);
+    query.bindValue(2,role);
+    
+    qDebug() << debugTitle << " - Raw SQL:" << query.lastQuery().toUtf8().constData();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.exec()) {
-        qWarning() << "Failed to insert song-character:" << query.lastError();
+        qWarning() << debugTitle << " - Failed to insert song-character:" << query.lastError();
         m_db.rollback();
         return -1;
     }
 
     if (!m_db.commit()) {
-        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        qWarning() <<  debugTitle << " - Failed to commit transaction:" << m_db.lastError();
         return -1;
     }
 
@@ -1051,10 +1074,13 @@ int MusicLibrary::pairSongCharacter(const int &songID, const int &characterID, c
 }
 
 // 从数据库中根据文件路径查找单个歌曲并返回信息
-MusicLibrary::SongInfo MusicLibrary::getSingleSong(const QString &path){
+SongInfo MusicLibrary::getSingleSong(const QString &path){
+
+    QString debugTitle = "getSingleSong";
+
     if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
-        return MusicLibrary::SongInfo();
+        qCritical() <<  debugTitle << " - Database is not open";
+        return SongInfo();
     }
 
     QSqlQuery query(m_db);
@@ -1063,33 +1089,36 @@ MusicLibrary::SongInfo MusicLibrary::getSingleSong(const QString &path){
         "file_path = :filePath");
     query.bindValue(":filePath", path);
 
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() <<  debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() <<  debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.exec()) {
-        qWarning() << "Check song existence failed:" << query.lastError();
+        qWarning() <<  debugTitle << " - Check song existence failed:" << query.lastError();
         m_db.rollback();
-        return MusicLibrary::SongInfo();
+        return SongInfo();
     }
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() <<  debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() <<  debugTitle << " - Bound values:" << query.boundValues();
 
     if (query.next()) {
         int existingSongID = query.value(0).toInt();
         m_db.commit();
-        qDebug() << "Song already exists:" << existingSongID;
+        qDebug() <<  debugTitle << " - Song already exists:" << existingSongID;
         SongInfo songInfo = getSingleSong(existingSongID);
         return songInfo;
     } else {
-        return MusicLibrary::SongInfo();
+        return SongInfo();
     }
 }
 
 // 从数据库中根据歌曲ID查找单个歌曲并返回信息
-MusicLibrary::SongInfo MusicLibrary::getSingleSong(const int &songID){
+SongInfo MusicLibrary::getSingleSong(const int &songID){
+
+    QString debugTitle = "getSingleSong";
+
     if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
-        return MusicLibrary::SongInfo();
+        qCritical() << debugTitle << " - Database is not open";
+        return SongInfo();
     }
 
     QSqlQuery query(m_db);
@@ -1099,26 +1128,26 @@ MusicLibrary::SongInfo MusicLibrary::getSingleSong(const int &songID){
         "track_number, disc_number, total_track_number, total_disc_number, "
         "is_favorite, is_live, is_single, live_event, live_event_count, is_cover, is_mashup, "
         "ori_release_year, ori_release_month,ori_release_day,ori_release_level, "
-        "release_year, release_month, release_day, release_level, created_at, modified_at"
+        "release_year, release_month, release_day, release_level, created_at, modified_at "
         "FROM Songs WHERE song_id = :songID");
     query.bindValue(":songID", songID);
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.exec()) {
-        qWarning() << "Check song existence failed:" << query.lastError();
+        qWarning() << debugTitle << " - Check song existence failed:" << query.lastError();
         m_db.rollback();
-        return MusicLibrary::SongInfo();
+        return SongInfo();
     }
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.next()){
-        qWarning() << "No song found with ID: " << songID;
-        return MusicLibrary::SongInfo();
+        qWarning() << debugTitle << " - No song found with ID: " << songID;
+        return SongInfo();
     }
 
-    MusicLibrary::SongInfo songInfo;
+    SongInfo songInfo;
     songInfo.songID = songID;
     songInfo.title = query.value("title").toString();
     songInfo.durations = query.value("durations").toInt();
@@ -1147,23 +1176,26 @@ MusicLibrary::SongInfo MusicLibrary::getSingleSong(const int &songID){
 
     // 人物
     songInfo.characters = getSongCharacters(songID);
-    songInfo.artists = songInfo.getCharacters("artist");
+    songInfo.artists = songInfo.getCharacters("Primary Artist");
 
     // 流派
     songInfo.genres = {};
-
+    qDebug() << debugTitle << " - genres";
     // 语言
     songInfo.languages = {};
+    qDebug() << debugTitle << " - languages";
 
+    return songInfo;
 }
 
-QVector<MusicLibrary::CharacterInfo> MusicLibrary::getSongCharacters(const int &songID){
+QVector<CharacterInfo> MusicLibrary::getSongCharacters(const int &songID){
 
-    QVector<MusicLibrary::CharacterInfo> characters;
+    QString debugTitle = "getSongCharacters";
+    QVector<CharacterInfo> characters;
 
     if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
-        return QVector<MusicLibrary::CharacterInfo>();
+        qCritical() << debugTitle << " - Database is not open";
+        return QVector<CharacterInfo>();
     }
 
     QSqlQuery query(m_db);
@@ -1179,21 +1211,23 @@ QVector<MusicLibrary::CharacterInfo> MusicLibrary::getSongCharacters(const int &
         "WHERE sc.song_id = :songID"
     );
     query.bindValue(":songID", songID);
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
     
     if (!query.exec()) {
-        qCritical() << "Query failed:" << query.lastError().text();
-        return QVector<MusicLibrary::CharacterInfo>();
+        qCritical() << debugTitle << " - Query failed:" << query.lastError().text();
+        return QVector<CharacterInfo>();
     }
-
-    
 
     while (query.next()){
         int id = query.value("character_id").toInt();
+        // qDebug() << debugTitle << " - id: " << id;
         QString characterName = query.value("character_foreign_name").toString();
+        // qDebug() << debugTitle << " - character_foreign_name: " << characterName;
         QString foreignName = query.value("character_name").toString();
+        // qDebug() << debugTitle << " - character_name: " << foreignName;
         QString role = query.value("role").toString();
+        // qDebug() << debugTitle << " - role: " << role;
 
         CharacterInfo info(role, characterName, foreignName);
         info.characterID = id;
@@ -1204,7 +1238,9 @@ QVector<MusicLibrary::CharacterInfo> MusicLibrary::getSongCharacters(const int &
 }
 
 
-QHash<QString, MusicLibrary::SongInfo> MusicLibrary::getSongsInfo(const QStringList &musicFiles) {
+QHash<QString, SongInfo> MusicLibrary::getSongsInfoBymusicFIles(const QStringList &musicFiles) {
+
+    QString debugTitle = "getSongsInfoBymusicFIles";
     QHash<QString, SongInfo> songDatabase;
     foreach(const QString& filePath, musicFiles){
         SongInfo song = readSongInfo(filePath);
@@ -1213,7 +1249,7 @@ QHash<QString, MusicLibrary::SongInfo> MusicLibrary::getSongsInfo(const QStringL
         QString key = song.filePath;
         // 若存在重复曲目，抛出异常
         if(songDatabase.contains(key)) {
-            qWarning() << "Duplicate song found:" << song.title << song.albumID << song.artists.first() << song.filePath;
+            qWarning() << debugTitle << " - Duplicate song found:" << song.title << song.albumID << song.artists.first() << song.filePath;
         } else {
             songDatabase.insert(key, song);
         }
@@ -1221,19 +1257,49 @@ QHash<QString, MusicLibrary::SongInfo> MusicLibrary::getSongsInfo(const QStringL
 
     // 打印出所有Song的信息
     foreach(const SongInfo& song, songDatabase){
-        qDebug() << "getSongsInfo -- Title: " << song.title << ", album ID: "<< song.albumID << ", 专辑演出者: " << song.artists.first() << ", Path: " <<song.filePath;
+        qDebug() << debugTitle << " - Title: " << song.title << ", album ID: "<< song.albumID << ", 专辑演出者: " << song.artists.first() << ", Path: " <<song.filePath;
     }
 
     return songDatabase;
 }
 
-QVector<MusicLibrary::CharacterInfo> MusicLibrary::readCharacterInfo(const QString &filePath, const bool getID){
+QHash<int, SongInfo> MusicLibrary::getSongsInfoByID(const QVector<int> &songIDs) {
+
+    QString debugTitle = "getSongsInfoByID";
+    QHash<int, SongInfo> songDatabase;
+
+    foreach(const int& songID, songIDs){
+        qDebug() << debugTitle << " - Next: getSingleSong(songID), songID: " << songID;
+        SongInfo song = getSingleSong(songID);
+        qDebug() << debugTitle << " - Last: getSingleSong(songID), songID: " << songID;
+        // songID为key
+        int key = song.songID;
+        qDebug() << debugTitle << " - songID: " << song.songID;
+        // 若存在重复曲目，抛出异常
+        if(songDatabase.contains(key)) {
+            qWarning() << debugTitle << " - Duplicate song found:" << song.title << song.albumID << song.artists.first() << song.filePath;
+        } else {
+            songDatabase.insert(key, song);
+        }
+    }
+
+    // 打印出所有Song的信息
+    foreach(const SongInfo& song, songDatabase){
+        qDebug() << debugTitle << " - Title: " << song.title << ", album ID: "<< song.albumID << ", 专辑演出者: " << song.artists.first() << ", Path: " <<song.filePath;
+    }
+
+    return songDatabase;
+}
+
+QVector<CharacterInfo> MusicLibrary::readCharacterInfo(const QString &filePath, const bool getID){
+
+    QString debugTitle = "readCharacterInfo";
     QVector<CharacterInfo> characters;
 
     TagLib::FileRef file(filePath.toStdString().c_str());
 
     if(file.isNull() || !file.tag()) {
-        qWarning() << "无法读取文件标签:" << filePath;
+        qWarning() << debugTitle << " - 无法读取文件标签:" << filePath;
         return characters;
     }
 
@@ -1243,27 +1309,27 @@ QVector<MusicLibrary::CharacterInfo> MusicLibrary::readCharacterInfo(const QStri
     // 演出者
     QStringList artists = splitString(QString::fromStdString(tag->artist().toCString(true)));
     for (const QString &artist : artists) {
-        characters.append(CharacterInfo("artist", artist, ""));
+        characters.append(CharacterInfo("Primary Artist", artist, ""));
     }
     // 专辑演出者
     QStringList albumArtists = splitString(QString::fromStdString(props["ALBUMARTIST"].toString().toCString(true)));
     for (const QString &albumArtist : albumArtists) {
-        characters.append(CharacterInfo("album_artist", albumArtist, ""));
+        characters.append(CharacterInfo("Album Artist", albumArtist, ""));
     }
     // 作曲
     QStringList composers = splitString(QString::fromStdString(props["COMPOSER"].toString().toCString(true)));
     for (const QString &composer : composers) {
-        characters.append(CharacterInfo("composer", composer, ""));
+        characters.append(CharacterInfo("Composer", composer, ""));
     }
     // 作词
     QStringList lyricists = splitString(QString::fromStdString(props["LYRICIST"].toString().toCString(true)));
     for (const QString &lyricist : lyricists) {
-        characters.append(CharacterInfo("lyricist", lyricist, ""));
+        characters.append(CharacterInfo("Lyricist", lyricist, ""));
     }
     // 指挥
-    QStringList performers = splitString(QString::fromStdString(props["PERFORMER"].toString().toCString(true)));
-    for (const QString &performer : performers) {
-        characters.append(CharacterInfo("performer", performer, ""));
+    QStringList conductors = splitString(QString::fromStdString(props["CONDUCTOR"].toString().toCString(true)));
+    for (const QString &conductor : conductors) {
+        characters.append(CharacterInfo("Conductor", conductor, ""));
     }
 
     // 尝试获取ID
@@ -1279,8 +1345,9 @@ QVector<MusicLibrary::CharacterInfo> MusicLibrary::readCharacterInfo(const QStri
     return characters;
 }
 
-QHash<QString, MusicLibrary::CharacterInfo> MusicLibrary::getCharactersInfo(const QStringList &musicFiles) {
+QHash<QString, CharacterInfo> MusicLibrary::getCharactersInfo(const QStringList &musicFiles) {
 
+    QString debugTitle = "getCharactersInfo";
     QHash<QString, CharacterInfo> characterDatabase;
 
     foreach(const QString& filePath, musicFiles){
@@ -1293,20 +1360,22 @@ QHash<QString, MusicLibrary::CharacterInfo> MusicLibrary::getCharactersInfo(cons
 
     // 打印出所有characters的信息
     foreach(const CharacterInfo& character, characterDatabase){
-        qDebug() << "getCharactersInfo -- Name: " << character.characterName <<  "role: " << character.role;
+        qDebug() << debugTitle << " - Name: " << character.characterName <<  "role: " << character.role;
     }
 
     return characterDatabase;
 }
 
 
-MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath, const bool getID = false){
+AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath, const bool getID = false){
+
+    QString debugTitle = "readAlbumInfo";
     AlbumInfo album;
 
     TagLib::FileRef file(filePath.toStdString().c_str());
 
     if(file.isNull() || !file.tag()) {
-        qWarning() << "无法读取文件标签:" << filePath;
+        qWarning() << debugTitle << " - 无法读取文件标签:" << filePath;
         return album;
     }
 
@@ -1330,7 +1399,7 @@ MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath, con
     // 发行时间
     unsigned int year = tag->year();
     if (year > 0) {
-        MusicLibrary::DateInfo albumreleasedate;
+        DateInfo albumreleasedate;
         albumreleasedate.date = QDate(year, 1, 1);
         albumreleasedate.level = 1;  
         album.albumReleaseTime = albumreleasedate;
@@ -1373,9 +1442,11 @@ MusicLibrary::AlbumInfo MusicLibrary::readAlbumInfo(const QString &filePath, con
 }
 
 
-MusicLibrary::DateInfo MusicLibrary::formatDate(const QString &dateString){
+DateInfo MusicLibrary::formatDate(const QString &dateString){
 
-    MusicLibrary::DateInfo date;
+    QString debugTitle = "formatDate";
+
+    DateInfo date;
     if (dateString.isEmpty()) {
         return date;
     }
@@ -1414,7 +1485,9 @@ MusicLibrary::DateInfo MusicLibrary::formatDate(const QString &dateString){
     return date;
 }
 
-MusicLibrary::SongInfo MusicLibrary::readSongInfo(const QString &filePath){
+SongInfo MusicLibrary::readSongInfo(const QString &filePath){
+
+    QString debugTitle = "readSongInfo";
     SongInfo song;
 
     AlbumInfo album = readAlbumInfo(filePath, true);
@@ -1423,7 +1496,7 @@ MusicLibrary::SongInfo MusicLibrary::readSongInfo(const QString &filePath){
     TagLib::FileRef file(filePath.toStdString().c_str());
 
     if(file.isNull() || !file.tag()) {
-        qWarning() << "无法读取文件标签:" << filePath;
+        qWarning() << debugTitle << " - 无法读取文件标签:" << filePath;
         return song;
     }
     TagLib::Tag* tag = file.tag();
@@ -1480,7 +1553,7 @@ MusicLibrary::SongInfo MusicLibrary::readSongInfo(const QString &filePath){
     // 发行时间
     unsigned int year = tag->year();
     if (year > 0) {
-        MusicLibrary::DateInfo releaseDate;
+        DateInfo releaseDate;
         releaseDate.date = QDate(year, 1, 1);
         releaseDate.level = 1;  
         song.releaseDate = releaseDate;
@@ -1544,6 +1617,8 @@ QStringList MusicLibrary::splitString(const QString &str){
 
 QStringList MusicLibrary::splitString(const QStringList &strlist){
 
+    QString debugTitle = "splitString";
+
     QStringList newstrlist;
     if (!strlist.isEmpty()) {
         foreach(const QString &str, strlist){
@@ -1553,7 +1628,7 @@ QStringList MusicLibrary::splitString(const QStringList &strlist){
     return newstrlist;
 }
 
-QHash<QString, MusicLibrary::AlbumInfo> MusicLibrary::getAlbumsInfo(const QStringList &musicFiles) {
+QHash<QString, AlbumInfo> MusicLibrary::getAlbumsInfo(const QStringList &musicFiles) {
     QHash<QString, AlbumInfo> albumDatabase;
 
     foreach(const QString& filePath, musicFiles){
@@ -1601,20 +1676,24 @@ QHash<QString, MusicLibrary::AlbumInfo> MusicLibrary::getAlbumsInfo(const QStrin
 
 
 
-// std::vector<MusicLibrary::SongItem> MusicLibrary::getAllSongs()
-// {
+// std::vector<MusicLibrary::SongItem> MusicLibrary::getAllSongs() {
+
+//     QString debugTitle = "getAllSongs";
+
 //     std::vector<SongItem> songs;
 
 //     QSqlQuery query(m_db);
 //     query.prepare(
-//         "SELECT s.title, s.durations, s.file_path, "
-//         "GROUP_CONCAT(DISTINCT c.character_name) AS artists "
+//         "SELECT s.song_id, s.title, s.durations, s.file_path, a.album_name, "
+//         "GROUP_CONCAT(DISTINCT g.genre) AS genres, "
+//         "GROUP_CONCAT(DISTINCT c.character_name || ':' || sc.role) AS characters "
 //         "FROM Songs s "
+//         "LEFT JOIN Albums a ON s.album_id = a.album_id "
 //         "LEFT JOIN SongCharacters sc ON s.song_id = sc.song_id "
 //         "LEFT JOIN Characters c ON sc.character_id = c.character_id "
-//         "WHERE sc.role = 'performer' "
+//         "LEFT JOIN Genre g ON s.song_id = g.song_id "
 //         "GROUP BY s.song_id"
-//         );
+//     );
 
 //     if (!query.exec()) {
 //         throw std::runtime_error(query.lastError().text().toStdString());
@@ -1623,66 +1702,36 @@ QHash<QString, MusicLibrary::AlbumInfo> MusicLibrary::getAlbumsInfo(const QStrin
 //     while (query.next()) {
 //         SongItem song;
 //         song.title = query.value("title").toString();
-//         song.duration = query.value("durations").toInt();
+//         song.duration = query.value("durations").toInt(); 
 //         song.filePath = query.value("file_path").toString();
-//         song.artists = query.value("artists").toString().split(",");
+
+//         QStringList artistRolePairs = query.value("characters").toString().split(",");
+//         QMap<QString, QStringList> roleMap;
+//         for (const QString &pair : artistRolePairs) {
+//             QStringList parts = pair.split(":");
+//             if (parts.size() == 2) {
+//                 QString name = parts[0].trimmed();
+//                 QString role = parts[1].trimmed();
+//                 roleMap[name].append(role);
+//             }
+//         }
+
+//         for (auto it = roleMap.begin(); it != roleMap.end(); ++it) {
+//             song.artists.append(it.key() + " (" + it.value().join(", ") + ")");
+//         }
+
 //         songs.push_back(song);
 //     }
 
 //     return songs;
 // }
 
-std::vector<MusicLibrary::SongItem> MusicLibrary::getAllSongs() {
-    std::vector<SongItem> songs;
-
-    QSqlQuery query(m_db);
-    query.prepare(
-        "SELECT s.song_id, s.title, s.durations, s.file_path, a.album_name, "
-        "GROUP_CONCAT(DISTINCT g.genre) AS genres, "
-        "GROUP_CONCAT(DISTINCT c.character_name || ':' || sc.role) AS characters "
-        "FROM Songs s "
-        "LEFT JOIN Albums a ON s.album_id = a.album_id "
-        "LEFT JOIN SongCharacters sc ON s.song_id = sc.song_id "
-        "LEFT JOIN Characters c ON sc.character_id = c.character_id "
-        "LEFT JOIN Genre g ON s.song_id = g.song_id "
-        "GROUP BY s.song_id"
-    );
-
-    if (!query.exec()) {
-        throw std::runtime_error(query.lastError().text().toStdString());
-    }
-
-    while (query.next()) {
-        SongItem song;
-        song.title = query.value("title").toString();
-        song.duration = query.value("durations").toInt(); 
-        song.filePath = query.value("file_path").toString();
-
-        QStringList artistRolePairs = query.value("characters").toString().split(",");
-        QMap<QString, QStringList> roleMap;
-        for (const QString &pair : artistRolePairs) {
-            QStringList parts = pair.split(":");
-            if (parts.size() == 2) {
-                QString name = parts[0].trimmed();
-                QString role = parts[1].trimmed();
-                roleMap[name].append(role);
-            }
-        }
-
-        for (auto it = roleMap.begin(); it != roleMap.end(); ++it) {
-            song.artists.append(it.key() + " (" + it.value().join(", ") + ")");
-        }
-
-        songs.push_back(song);
-    }
-
-    return songs;
-}
-
 bool MusicLibrary::insertPlayList(const QString &name, const QVector<int> &songIDs){
 
+    QString debugTitle = "insertPlayList";
+
     if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
+        qCritical() << debugTitle << " - Database is not open";
         return false;
     }
 
@@ -1693,11 +1742,11 @@ bool MusicLibrary::insertPlayList(const QString &name, const QVector<int> &songI
         "name = :playListName");
     query.bindValue(":playListName", name);
 
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.exec()) {
-        qWarning() << "Check playlist existence failed:" << query.lastError();
+        qWarning() << debugTitle << " - Check playlist existence failed:" << query.lastError();
         m_db.rollback();
         return -1;
     }
@@ -1707,12 +1756,16 @@ bool MusicLibrary::insertPlayList(const QString &name, const QVector<int> &songI
     if (query.next()) {
         // 从SongsPlayList中删除旧歌单的歌曲
         playListID = query.value(0).toInt();
+        if (songIDs.isEmpty()){
+            qDebug() << debugTitle << " - Found Playlist exist, cancel insert: " << playListID;
+            return playListID;
+        }
         query.prepare("DELETE FROM SongsPlayList WHERE playlist_id = :playListID");
         query.bindValue(":playListID", playListID);
         if (!query.exec()) {
-            qDebug() << "Delete failed:" << query.lastError().text();
+            qDebug() << debugTitle << " - Delete failed:" << query.lastError().text();
         } else {
-            qDebug() << "Delete success" << query.numRowsAffected() << "rows";
+            qDebug() << debugTitle << " - Delete success" << query.numRowsAffected() << "rows";
         }
 
     }  else {
@@ -1724,14 +1777,19 @@ bool MusicLibrary::insertPlayList(const QString &name, const QVector<int> &songI
             ")"
         );
         query.bindValue(":playListName", name);
-        qDebug() << "Executing query:" << query.lastQuery();
-        qDebug() << "Bound values:" << query.boundValues();
+        qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+        qDebug() << debugTitle << " - Bound values:" << query.boundValues();
         if (!query.exec()) {
             qWarning() << "Insert playlist failed:" << query.lastError();
             m_db.rollback();
             return -1;
         }
         playListID = query.lastInsertId().toInt();
+    }
+
+    if (songIDs.isEmpty()){
+        qDebug() << debugTitle << " - Empty Playlist Inserted: " << playListID;
+        return playListID;
     }
     
 
@@ -1745,16 +1803,16 @@ bool MusicLibrary::insertPlayList(const QString &name, const QVector<int> &songI
         query.bindValue(":playListID", playListID);
         query.bindValue(":songID", songID);
     
-        qDebug() << "Executing query:" << query.lastQuery();
-        qDebug() << "Bound values:" << query.boundValues();
+        qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+        qDebug() << debugTitle << " - Bound values:" << query.boundValues();
     
         if (!query.exec()) {
             if (query.lastError().nativeErrorCode() == "2067") { // SQLite 的唯一性错误代码
-                qDebug() << "Song already exists, skipping insertion.";
+                qDebug() << debugTitle << " - Song already exists, skipping insertion.";
                 m_db.rollback();
                 return -1;
             } else {
-                qWarning() << "Insert song failed:" << query.lastError();
+                qWarning() << debugTitle << " - Insert song failed:" << query.lastError();
                 m_db.rollback();
                 return -1;
             }
@@ -1765,23 +1823,52 @@ bool MusicLibrary::insertPlayList(const QString &name, const QVector<int> &songI
     int newSongID = query.lastInsertId().toInt();
 
     if (!query.exec()) {
-        qWarning() << "Failed to insert song-character:" << query.lastError();
+        qWarning() << debugTitle << " - Failed to insert song-character:" << query.lastError();
         m_db.rollback();
         return -1;
     }
 
     if (!m_db.commit()) {
-        qWarning() << "Failed to commit transaction:" << m_db.lastError();
+        qWarning() << debugTitle << " - Failed to commit transaction:" << m_db.lastError();
         return -1;
     }
 
 }
 
+bool MusicLibrary::deletePlayList(const int &playListID){
+
+    QString debugTitle = "deletePlayList";
+
+    if (!m_db.isOpen()) {
+        qCritical() << debugTitle << " - Database is not open";
+        return false;
+    }
+
+    QSqlQuery query(m_db);
+
+    // 检查歌单是否存在
+    query.prepare("DELETE  FROM Songs WHERE "
+        "song_id = :playListID");
+    query.bindValue(":playListID", playListID);
+
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
+
+    if (!query.exec()) {
+        qWarning() << debugTitle << " - Delete playlist failed:" << query.lastError();
+        m_db.rollback();
+        return -1;
+    }
+}
+
 QVector<int> MusicLibrary::loadPlayList(const QString &name){
+
+    QString debugTitle = "loadPlayList";
+
     QVector<int> songIDs;
 
     if (!m_db.isOpen()) {
-        qCritical() << "Database is not open";
+        qCritical() << debugTitle << " - Database is not open";
         return QVector<int>();
     }
 
@@ -1792,17 +1879,17 @@ QVector<int> MusicLibrary::loadPlayList(const QString &name){
         "name = :playListName");
     query.bindValue(":playListName", name);
 
-    qDebug() << "Executing query:" << query.lastQuery();
-    qDebug() << "Bound values:" << query.boundValues();
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
 
     if (!query.exec()) {
-        qWarning() << "Check playlist existence failed:" << query.lastError();
+        qWarning() << debugTitle << " - Check playlist existence failed:" << query.lastError();
         m_db.rollback();
         return QVector<int>();
     }
     if (!query.next()) {
         // 不存在
-        qWarning() << "Playlist not exists:";
+        qWarning() << debugTitle << " - Playlist not exists:";
     }
 
     // 读取数据
@@ -1810,7 +1897,7 @@ QVector<int> MusicLibrary::loadPlayList(const QString &name){
     query.prepare("SELECT  song_id FROM SongsPlayList WHERE playlist_id = :playListID");
     query.bindValue(":playListID", playListID);
     if (!query.exec()) {
-        qCritical() << "Failed to execute query:" << query.lastError().text();
+        qCritical() << debugTitle << " - Failed to execute query:" << query.lastError().text();
     } else {
         while(query.next()){
             const int songID = query.value("song_id").toInt();
@@ -1819,4 +1906,105 @@ QVector<int> MusicLibrary::loadPlayList(const QString &name){
     }
 
     return songIDs;
+}
+
+QVector<int> MusicLibrary::loadPlayList(const int &playListID){
+
+    QString debugTitle = "loadPlayList";
+
+    QVector<int> songIDs;
+
+    if (!m_db.isOpen()) {
+        qCritical() << debugTitle << " - Database is not open";
+        return QVector<int>();
+    }
+
+    QSqlQuery query(m_db);
+
+    // 检查歌单是否存在
+    query.prepare("SELECT playlist_id FROM PlayList WHERE "
+        "playlist_id = :playlistID");
+    query.bindValue(":playlistID", playListID);
+
+    qDebug() << debugTitle << " - Executing query:" << query.lastQuery();
+    qDebug() << debugTitle << " - Bound values:" << query.boundValues();
+
+    if (!query.exec()) {
+        qWarning() << debugTitle << " - Check playlist existence failed:" << query.lastError();
+        m_db.rollback();
+        return QVector<int>();
+    }
+    if (!query.next()) {
+        // 不存在
+        qWarning() << debugTitle << " - Playlist " << playListID << "not exists:";
+    }
+
+    // 读取数据
+    query.prepare("SELECT  song_id FROM SongsPlayList WHERE playlist_id = :playListID");
+    query.bindValue(":playListID", playListID);
+    if (!query.exec()) {
+        qCritical() << debugTitle << " - Failed to execute query:" << query.lastError().text();
+    } else {
+        while(query.next()){
+            const int songID = query.value("song_id").toInt();
+            songIDs.append(songID);
+        }
+    }
+
+    return songIDs;
+}
+
+QVector<int> MusicLibrary::loadAllSongs(){
+
+    QString debugTitle = "loadAllSongs";
+
+    QVector<int> songIDs;
+
+    if (!m_db.isOpen()) {
+        qCritical() << debugTitle << " - Database is not open";
+        return QVector<int>();
+    }
+
+    QSqlQuery query(m_db);
+
+    // 读取数据
+    query.prepare("SELECT  song_id FROM Songs");
+
+    if (!query.exec()) {
+        qCritical() << debugTitle << " - Failed to execute query:" << query.lastError().text();
+    } else {
+        while(query.next()){
+            const int songID = query.value("song_id").toInt();
+            songIDs.append(songID);
+        }
+    }
+
+    return songIDs;
+}
+
+QVector<PlayListInfo> MusicLibrary::getPlayLists(){
+
+    QVector<PlayListInfo> playListsInfo;
+    QString debugTitle = "getPlayLists";
+
+    if (!m_db.isOpen()) {
+        qCritical() << debugTitle << " - Database is not open";
+        return QVector<PlayListInfo>();
+    }
+
+    QSqlQuery query(m_db);
+    query.prepare("SELECT playlist_id, name FROM PlayList ");
+
+    if (!query.exec()) {
+        qWarning() << debugTitle << " - Check playlist existence failed:" << query.lastError();
+        m_db.rollback();
+        return QVector<PlayListInfo>();
+    } else {
+        while(query.next()){
+            playListsInfo.append(PlayListInfo(query.value("playlist_id").toInt(), query.value("name").toString()));
+        }
+    }
+
+    return playListsInfo;
+
 }

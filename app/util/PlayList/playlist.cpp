@@ -1,10 +1,15 @@
 #include "playlist.h"
+#include "app/util/Config/musiclibrary.h"
+
 
 PlayList::PlayList(const QString& name, QObject* parent)
     : QObject{parent}, m_name(name), musicLib(MusicLibrary::instance())
 {
+    qDebug() << "PlayList - Initiating: " << m_name;
     m_id = getPlayListID();
     m_lastModified = QDateTime::currentSecsSinceEpoch();
+    loadFromLibrary();
+    qDebug() << "PlayList - Initiated: " << m_name;
 }
 
 int PlayList::id() const { return m_id; }
@@ -21,12 +26,12 @@ int PlayList::getPlayListID(){
     return 1;
 }
 
-QHash<int, MusicLibrary::SongInfo>  PlayList::getSongs() const { return m_songs; }
+QHash<int, SongInfo>  PlayList::getSongs() const { return m_songs; }
 
 QVector<int>  PlayList::getSongIDs() const { return m_songIDs; }
 
 int PlayList::addSong(const QString& songPath) {
-    MusicLibrary::SongInfo songInfo = musicLib.getSingleSong(songPath);
+    SongInfo songInfo = musicLib.getSingleSong(songPath);
     
     if (m_songs.contains(songInfo.songID)){
         qWarning() << "Duplicated song ID: " << songInfo.songID;
@@ -42,7 +47,7 @@ int PlayList::addSong(const QString& songPath) {
 }
 
 int PlayList::addSong(const int& songID) {
-    MusicLibrary::SongInfo songInfo = musicLib.getSingleSong(songID);
+    SongInfo songInfo = musicLib.getSingleSong(songID);
     
     if (m_songs.contains(songInfo.songID)){
         qWarning() << "Duplicated song ID: " << songInfo.songID;
@@ -104,13 +109,23 @@ int PlayList::saveToLibrary(){
     musicLib.insertPlayList(m_name, m_songIDs);
 }
 
-int PlayList::loadFromLibrary(){
+void PlayList::loadFromLibrary(){
     m_songIDs.clear();
     m_songs.clear();
-    QVector<int> songIDs = musicLib.loadPlayList(m_name);
-    for (const int &songID : songIDs){
-        addSong(songID);
+
+    QVector<int> songIDs;
+    if (m_name == "AllSongs"){
+        qDebug() << "load from AllSongs";
+        songIDs = musicLib.loadAllSongs();
+    } else {
+        songIDs = musicLib.loadPlayList(m_name);
     }
-    emit PlayListChanged();
+    
+    for (const int &songID : songIDs){
+        // addSong(songID);
+        m_songIDs.append(songID);
+    }
+    m_songs = musicLib.getSongsInfoByID(m_songIDs);
+    // emit PlayListChanged();
 }
 

@@ -4,6 +4,7 @@ project(IntMusic VERSION 0.1 LANGUAGES CXX)
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_AUTORCC ON)
 
 # 查找Qt组件
 find_package(Qt6 6.5 REQUIRED COMPONENTS
@@ -46,9 +47,10 @@ function(scan_sources dir result)
     set(${result} ${sources} PARENT_SCOPE)
 endfunction()
 scan_sources("app" INTMUSIC_SOURCES)
-add_executable(IntMusic ${INTMUSIC_SOURCES})
-
-qt_add_resources(RESOURCES resources.qrc)
+qt_add_executable(IntMusic 
+    ${INTMUSIC_SOURCES} 
+    resources.qrc
+)
 
 qt_add_translations(
     TARGETS IntMusic

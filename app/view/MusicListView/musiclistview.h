@@ -11,6 +11,7 @@
 #include <QPushButton>
 
 #include "app/util/Config/musiclibrary.h"
+#include "app/util/PlayList/playlistmanager.h"
 
 class MusicListView : public QWidget {
     Q_OBJECT
@@ -26,6 +27,7 @@ private:
     QListView *listView;
     QStandardItemModel *model;
     MusicLibrary &musicLib;
+    PlayListManager &plManager;
 
     QPushButton *refreshButton;
 

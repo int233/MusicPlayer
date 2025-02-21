@@ -1,4 +1,5 @@
 Category	Role
+MainPerformer	Album Artist
 Composer	Accordion Arrangement
 Composer	Accordion Arranger
 Composer	Acoustic Guitar Arrangement
@@ -7192,7 +7193,7 @@ Production	Visual Media
 Production	Visual Production
 Production	Visual Remixing
 Production	Visuals
-Production  VJ
+Production	VJ
 Production	Vocal Arrangement Assistant
 Production	Vocal Assistance
 Production	Vocal Coach

@@ -1,9 +1,17 @@
 #ifndef PLAYLIST_H
 #define PLAYLIST_H
 
+#include <QObject>
+#include <QHash>
+#include <QVector>
+
 #include <algorithm>
 
-#include "app/util/Config/musiclibrary.h"
+#include "app/util/Config/musicdatastruct.h"
+
+class MusicLibrary;
+struct SongInfo;
+
 
 class PlayList : public QObject
 {
@@ -15,7 +23,7 @@ public:
     QString name() const;
     void setName(const QString& name);
 
-    QHash<int, MusicLibrary::SongInfo> getSongs() const;
+    QHash<int, SongInfo> getSongs() const;
     QVector<int> getSongIDs() const;
     
     int addSong(const QString& songPath);
@@ -37,20 +45,19 @@ signals:
 
 protected:
     MusicLibrary &musicLib;
+    // MusicLibrary::PlayList playListInfo;
     int m_id;
     QString m_name;
     // 顺序标记
     QVector<int> m_songIDs;
     // 歌曲信息
-    QHash<int, MusicLibrary::SongInfo> m_songs;
+    QHash<int, SongInfo> m_songs;
 
     qint64 m_lastModified;
 
     int getPlayListID();
     int saveToLibrary();
-    int loadFromLibrary();
-
-    
+    void loadFromLibrary();
 };
 
 #endif
