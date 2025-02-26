@@ -8,7 +8,13 @@ class StandardPlayList : public PlayList
 {
     Q_OBJECT
 public:
-    explicit StandardPlayList(const QString& name, QObject* parent = nullptr);
+    explicit StandardPlayList(const int id, const QString& name, QObject* parent = nullptr);
+
+protected:
+PlayList* createPlayList(int playListID, const QString& name) const override {
+    return new StandardPlayList(playListID, name); 
+}
+
 };
 
 #endif

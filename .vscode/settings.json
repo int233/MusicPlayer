@@ -97,7 +97,12 @@
         "__locale": "cpp",
         "qobject": "cpp",
         "thread": "cpp",
-        "qlist": "cpp"
+        "qlist": "cpp",
+        "qtimeedit": "cpp",
+        "__memory": "cpp",
+        "qstandardpaths": "cpp",
+        "qvector": "cpp",
+        "qstringlist": "cpp"
     },
     
     "terminal.integrated.env.windows": {

@@ -1,7 +1,7 @@
 #include "musicscanview.h"
 
 MusicScanView::MusicScanView(QWidget *parent)
-    : QWidget(parent), musicLib(MusicLibrary::instance()),configManager(ConfigManager::instance()),musicScanner(MusicScanner::instance())
+    : QWidget(parent),configManager(ConfigManager::instance()),musicScanner(MusicScanner::instance())
 {
     QVBoxLayout *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);

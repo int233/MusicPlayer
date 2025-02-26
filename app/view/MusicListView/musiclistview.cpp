@@ -1,8 +1,9 @@
 #include "musiclistview.h"
-#include "app/util/Config/musicdatastruct.h"
+#include "app/util/PlayList/standardplaylist.h"
+
 
 MusicListView::MusicListView(QWidget *parent)
-    : QWidget(parent), musicLib(MusicLibrary::instance()),plManager(PlayListManager::instance())
+    : QWidget(parent),pl_db(API::createPlayListDB()), player(&MusicService::instance())
 {
     setupUI();
     loadMusicData();
@@ -34,6 +35,7 @@ void MusicListView::setupUI()
 
     // 连接点击信号
     connect(listView, &QListView::clicked, this, &MusicListView::onItemClicked);
+    connect(listView, &QListView::doubleClicked, this, &MusicListView::onItemDoubleClicked);
 }
 
 void MusicListView::loadMusicData()
@@ -46,36 +48,33 @@ void MusicListView::loadMusicData()
 
     try {
         // 获取所有歌曲信息
-        PlayListInfo allSongsPlayListInfo = plManager.GetPlayList();
-        QHash<int, SongInfo> allSongs = allSongsPlayListInfo.playlist->getSongs();
+        qDebug() << debugTitle << " - start get PlayList: AllSongs, ID: 0" ;
+        QSharedPointer<PlayListInfo> allSongsPlayListInfo = pl_db->loadPlayListbyID(0);
+        // QSharedPointer<StandardPlayList> allSongsPlayList = allSongsPlayListInfo->playlist;
+        qDebug() << debugTitle << " - get allSongsPlayListInfo" ;
+        QHash<int, QSharedPointer<SongInfo>> allSongs = allSongsPlayListInfo->playlist->getSongs();
+        qDebug() << debugTitle << " - Retrieved songs count:" << allSongs.size();
 
-        for(const SongInfo& song : allSongs){
-            qDebug() << debugTitle << " - Title: " << song.title << ", album ID: "<< song.albumID << ", 专辑演出者: " << song.artists.first() << ", Path: " <<song.filePath;\
-            QStandardItem *item = new QStandardItem();
-            QString displayText = QString("%1\n艺术家: %2\n时长: %3")
-                                                .arg(song.title)
-                                                .arg(song.artists.join(", "))
-                                                .arg(QTime::fromMSecsSinceStartOfDay(song.durations*1000).toString("mm:ss"));
-            item->setText(displayText);
-            item->setData(song.filePath, Qt::UserRole); // 存储文件路径
-
-            model->appendRow(item);
+        if (allSongs.size() == 0){
+            return;
         }
 
-        // for (const auto &song : songs) {
-        //     QStandardItem *item = new QStandardItem();
-
-        //     // 格式化显示信息
-        //     QString displayText = QString("%1\n艺术家: %2\n时长: %3")
-        //                               .arg(song.title)
-        //                               .arg(song.artists.join(", "))
-        //                               .arg(QTime::fromMSecsSinceStartOfDay(song.duration*1000).toString("mm:ss"));
-
-        //     item->setText(displayText);
-        //     item->setData(song.filePath, Qt::UserRole); // 存储文件路径
-
-        //     model->appendRow(item);
-        // }
+        for(auto &songInfo : allSongs.values()){
+            qDebug() << debugTitle << " - Title: " << songInfo->title << ", album ID: "<< songInfo->albumID << ", 专辑演出者: " << songInfo->artists.first() << ", Path: " <<songInfo->filePath;
+            QStandardItem *item = new QStandardItem();
+            QString displayText = QString("%1\n艺术家: %2\n时长: %3")
+                                                .arg(songInfo->title)
+                                                .arg(songInfo->artists.join(", "))
+                                                .arg(QTime::fromMSecsSinceStartOfDay(songInfo->durations*1000).toString("mm:ss"));
+            item->setText(displayText);
+            qDebug() << debugTitle << " - Generated display text:" << displayText;
+            item->setData(songInfo->filePath, Qt::UserRole); 
+            item->setData(QVariant::fromValue(allSongsPlayListInfo), Qt::UserRole + 1);
+            item->setData(QVariant::fromValue(songInfo), Qt::UserRole + 2);
+            // qRegisterMetaType<SongInfo>("SongInfo");
+            // qRegisterMetaType<QSharedPointer<PlayListInfo>>("QSharedPointer<PlayListInfo>");
+            model->appendRow(item);
+        }
     } catch (const std::exception &e) {
         QMessageBox::critical(this, "错误", QString("加载音乐数据失败: %1").arg(e.what()));
     }
@@ -88,9 +87,27 @@ void MusicListView::refreshMusicList()
 
 void MusicListView::onItemClicked(const QModelIndex &index)
 {
-    QString filePath = index.data(Qt::UserRole).toString();
-    qDebug() << "选中歌曲路径:" << filePath;
-    
 
+    QString debugTitle = "onItemClicked";
+
+    QString filePath = index.data(Qt::UserRole).toString();
+    qDebug() << debugTitle << " - Clicked: " << filePath;
+    
 }
 
+void MusicListView::onItemDoubleClicked(const QModelIndex &index) {
+
+    QString debugTitle = "onItemDoubleClicked";
+
+    QString filePath = index.data(Qt::UserRole).toString();
+    QSharedPointer<PlayListInfo> playListInfo = index.data(Qt::UserRole + 1).value<QSharedPointer<PlayListInfo>>();
+    QSharedPointer<SongInfo> songInfo = index.data(Qt::UserRole + 2).value<QSharedPointer<SongInfo>>();
+    qDebug() <<  debugTitle << " - DoubleClicked: " << filePath;
+
+    // 发送歌单和歌曲id至Player
+    // player
+    player->setPlayList(playListInfo);
+    player->setSong(songInfo->songID);
+    player->play();
+
+}

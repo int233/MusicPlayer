@@ -6,23 +6,45 @@
 #include <QDate>
 #include <QRegularExpression>
 
+// #include "iplaylist.h"
+// #include "app/util/PlayList/playlist.h"
+// #include "app/util/PlayList/standardplaylist.h"
+// #include "app/util/PlayList/smartplaylist.h"
+
 class PlayList;
-class SmartPlayList;
-class StandardPlayList;
+// class SmartPlayList;
+// class StandardPlayList;
 
 struct DateInfo {
-    QDate date = QDate(1, 1, 1);
-    // 1: year, 2: year/month, 3: year/month/day
-    int level = 0;
+    // QDate date = QDate(1, 1, 1);
+    // // 1: year, 2: year/month, 3: year/month/day
+    // int level = 0;
+
+    int year;
+    int month;
+    int day;
+    int level;
+    DateInfo(int y = 0, int m = 0, int d = 0, int l = 0) 
+    : year(y), month(m), day(d) , level(l){}
+
     QString toString() const {
         switch(level) {
-        case 0: return "None";
-        case 1: return date.toString("yyyy");
-        case 2: return date.toString("yyyy-MM");
-        case 3: return date.toString("yyyy-MM-dd");
-        default: return date.toString();
+        case 1:  // 仅年份
+            return QString::number(year);
+        case 2:  // 年-月（月份补零）
+            return QString("%1-%2")
+                .arg(year)
+                .arg(month, 2, 10, QLatin1Char('0'));
+        case 3:  // 年-月-日（月日补零）
+            return QString("%1-%2-%3")
+                .arg(year)
+                .arg(month, 2, 10, QLatin1Char('0'))
+                .arg(day, 2, 10, QLatin1Char('0'));
+        case 0:  // 无日期信息
+        default:
+            return "None";
         }
-    };
+    }
 };
 
 struct AlbumInfo {
@@ -31,7 +53,7 @@ struct AlbumInfo {
     // TagLib::Tag::album()
     QString albumName;
     // ALBUM ARTIST
-    // file.file()->properties()["ALBUM ARTIST"]
+    // file.file()->properties()["ALBUMARTIST"]
     QStringList albumArtists;
     // PUBLISHER
     // file.file()->properties()["PUBLISHER"]
@@ -71,13 +93,20 @@ struct AlbumInfo {
     // LIVEEVENTCOUNT
     // file.file()->properties()["LIVEEVENTCOUNT"]
     QString liveEventCount;
+    QDateTime modified;
+
+    AlbumInfo(const QString &name)
+    : albumName(name){}
 };
 
 struct CharacterInfo{
     int characterID = -1;
     QString characterName;
     QString foreignName;
+    QString portrait_path = "";
+    int overlap_id = 0;
     QString role;
+    QDateTime modified;
 
     CharacterInfo(const QString& role,const QString& name, const QString& foreign)
     : role(role){
@@ -120,6 +149,7 @@ struct CharacterInfo{
 struct SongInfo {
     int songID = -1;
     QString title;
+    QString albumName;
     QStringList artists;
     // 时长(s)
     int durations = -1;
@@ -153,24 +183,29 @@ struct SongInfo {
     DateInfo originalReleaseDate;
     // RDATE
     DateInfo releaseDate;
-    QVector<CharacterInfo> characters;
+    QVector<QSharedPointer<CharacterInfo>> characters;
+    QSharedPointer<AlbumInfo> album;
     // tag->genre()
     QStringList genres;
     // LANGUAGE
     // file.file()->properties()["LANGUAGE"]
     QStringList languages;
+    QDateTime modified;
+
+    // SongInfo(const QString name)
+    //     : title(name){}
 
     QStringList getCharacters(const QString &role, bool foreign = false){
         QStringList result;
-        for (const CharacterInfo &character : characters) {
-            if (character.role == role) {
-                bool hasName = !character.characterName.isEmpty();
-                bool hasForeign = !character.foreignName.isEmpty();
+        for (const QSharedPointer<CharacterInfo> &character : characters) {
+            if (character->role == role) {
+                bool hasName = !character->characterName.isEmpty();
+                bool hasForeign = !character->foreignName.isEmpty();
 
                 if (hasName && hasForeign) {
-                    result.append(foreign ? character.foreignName : character.characterName);
+                    result.append(foreign ? character->foreignName : character->characterName);
                 } else {
-                    QString name = hasName ? character.characterName : character.foreignName;
+                    QString name = hasName ? character->characterName : character->foreignName;
                     if (!name.isEmpty()) {
                         result.append(name);
                     }
@@ -184,12 +219,20 @@ struct SongInfo {
 struct PlayListInfo {
     int playListID;
     QString playListName;
-    QVector<int> songIDs;
+    // QVector<int> songIDs;
     bool isSmart = false;
+    bool isEmpty = false;
     PlayList* playlist = nullptr;
+    QDateTime modified = QDateTime::currentDateTime();
 
-    PlayListInfo(const int &id, const QString &name, bool isSmart = false, QObject* parent = nullptr);
-    // ~PlayListInfo();
+    PlayListInfo(const int id, const QString &name, bool isSmart = false, QObject* parent = nullptr)
+    : playListID(id),
+    playListName(name),
+    isSmart(isSmart),
+    isEmpty(false),  
+    playlist(nullptr),   
+    modified(QDateTime::currentDateTime()) 
+{}
 };
 
 #endif // MUSICDATASTRUCT_H

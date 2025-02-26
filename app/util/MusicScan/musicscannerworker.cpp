@@ -1,7 +1,7 @@
 #include "musicscannerworker.h"
 
 MusicScannerWorker::MusicScannerWorker(QObject *parent)
-    : QObject{parent}, musicLib(MusicLibrary::instance())
+    : QObject{parent}, song_db(API::createSongDB())
 {
 }
 
@@ -41,8 +41,8 @@ void MusicScannerWorker::doScan(const QStringList &musicFolders, int maxFiles) {
     qDebug() << "All scanned music files:";
     try {
         // 扫描结束，将扫描到的临时文件存入数据库
-        musicLib.insertScanResult(musicFiles);
-        musicLib.parseInsertResult();
+        song_db->insertScanResult(musicFiles);
+        song_db->parseInsertResult();
         qDebug() << "Total music files:" << musicFiles.count();
         emit scanMusicFinished(musicFiles.count());
 
@@ -57,29 +57,29 @@ void MusicScannerWorker::doScan(const QStringList &musicFolders, int maxFiles) {
     }
 }
 
-void MusicScannerWorker::music2library(const QStringList &musicFiles) {
+// void MusicScannerWorker::music2library(const QStringList &musicFiles) {
 
-    emit scanTagStarted();
+//     emit scanTagStarted();
 
-    int tagsRead = 0;
-    for (const QString &filePath : musicFiles) {
-        TagLib::FileRef fileRef(filePath.toStdString().c_str());
-        if (fileRef.isNull() || !fileRef.tag()) {
-            emit scanTagFailed(QString("Failed to read tags: %1").arg(filePath));
-            continue;
-        }
+//     int tagsRead = 0;
+//     for (const QString &filePath : musicFiles) {
+//         TagLib::FileRef fileRef(filePath.toStdString().c_str());
+//         if (fileRef.isNull() || !fileRef.tag()) {
+//             emit scanTagFailed(QString("Failed to read tags: %1").arg(filePath));
+//             continue;
+//         }
 
-        TagLib::Tag *tag = fileRef.tag();
-        QString title = QString::fromUtf8(tag->title().toCString(true));
-        QString artist = QString::fromUtf8(tag->artist().toCString(true));
-        QString album = QString::fromUtf8(tag->album().toCString(true));
-        emit musicFileTagRead(filePath, title, artist, album);
-        tagsRead++;
-    }
+//         TagLib::Tag *tag = fileRef.tag();
+//         QString title = QString::fromUtf8(tag->title().toCString(true));
+//         QString artist = QString::fromUtf8(tag->artist().toCString(true));
+//         QString album = QString::fromUtf8(tag->album().toCString(true));
+//         emit musicFileTagRead(filePath, title, artist, album);
+//         tagsRead++;
+//     }
 
-    if (tagsRead > 0) {
-        emit scanTagFinished(tagsRead);
-    } else {
-        emit scanTagFailed("No valid tags found in any files");
-    }
-}
+//     if (tagsRead > 0) {
+//         emit scanTagFinished(tagsRead);
+//     } else {
+//         emit scanTagFailed("No valid tags found in any files");
+//     }
+// }

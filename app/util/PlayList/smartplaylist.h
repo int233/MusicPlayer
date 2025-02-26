@@ -8,7 +8,7 @@ class SmartPlayList : public PlayList
 {
     Q_OBJECT
 public:
-    explicit SmartPlayList(const QString& name, QObject* parent = nullptr);
+    explicit SmartPlayList(const int id, const QString& name, QObject* parent = nullptr);
     bool isSmart() const override { return true; }
 
     // virtual void updateSmartRules(const QJsonObject& rules) = 0;

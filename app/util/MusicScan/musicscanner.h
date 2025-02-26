@@ -7,15 +7,15 @@
 #include <QDebug>
 #include <QFileInfo>
 #include <QStringList>
+#include <QSettings>
+#include <QThread>
 
 #include <taglib/taglib.h>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
 
 #include "musicscannerworker.h"
-
 #include "app/util/Config/configmanager.h"
-#include "app/util/Config/musiclibrary.h"
 
 
 class MusicScanner : public QObject

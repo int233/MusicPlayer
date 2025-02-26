@@ -10,23 +10,38 @@
 
 #include <QHBoxLayout>
 
-#include "app/util/MusicPlayer/musicplayer.h"
+#include "app/util/MusicPlayer/musicservice.h"
+#include "app/util/Interface/musicdatastruct.h"
 
 class MiniPlayer : public QWidget
 {
     Q_OBJECT
 public:
     explicit MiniPlayer(QWidget *parent = nullptr);
-    MusicPlayer *player;
+    
     QSlider* getProgressSlider() const { return MiniPlayerProgress; }
     QTimeEdit* getCurrentTimeEdit() const { return MiniPlayerCurrentTime; }
     QTimeEdit* getTotalTimeEdit() const { return MiniPlayerTotalTime; }
     QPushButton* getPauseButton() const { return MiniPlayerPause; }
 
 private slots:
-    void togglePlayPause(bool play);  // 播放/暂停按钮的槽函数
+    void updatePlayPauseIcon(QMediaPlayer::PlaybackState state);
+    void togglePlayPause(bool play);
+    void togglePlayPrevious(bool play);
+    void displaySongInfo(QSharedPointer<SongInfo>  songInfo);
+    void updateSongTitle(QString title);
+    void updateAlbumTitle(QString title);
+    QTime getTimeObj(int seconds);
+    void updateTotalTime(qint64 durations);
+    void initProgressBar(qint64 durations);
+    void updateCurrentTime(qint64 durations);
+    void updateProgressBar(qint64 position);
+    void seekPosition(int position);
+    void updateSongInfo();
+
 
 private:
+    MusicService *player;
     // MiniPlayer 控件
     QWidget *MiniAlbum;
     QGraphicsView *AlbumImage;
@@ -43,6 +58,7 @@ private:
     QPushButton *MiniPlayerPause;
     QPushButton *MiniPlayerNext;
     QPushButton *MiniPlayerSound;
+
 };
 
 #endif // MINIPLAYER_H

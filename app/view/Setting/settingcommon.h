@@ -13,7 +13,6 @@
 #include "app/view/MusicScanView/musicscanview.h"
 
 #include "app/util/Config/configmanager.h"
-#include "app/util/Config/musiclibrary.h"
 
 class SettingCommon : public QWidget
 {

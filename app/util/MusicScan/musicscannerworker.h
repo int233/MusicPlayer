@@ -12,7 +12,10 @@
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
 
-#include "app/util/Config/musiclibrary.h"
+// #include "app/util/Config/musiclibrary.h"
+#include "app/util/Interface/isong.h"
+#include "app/util/Interface/api.h"
+
 
 class MusicScannerWorker : public QObject {
     Q_OBJECT
@@ -24,7 +27,7 @@ public slots:
     void doScan(const QStringList &musicFolders, int maxFiles);
 
 private:
-    MusicLibrary &musicLib;
+    ISong *song_db;
 
 signals:
     void scanMusicStarted();

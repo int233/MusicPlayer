@@ -4,34 +4,52 @@
 #include <QObject>
 #include <QHash>
 #include <QVector>
+#include <QSqlDatabase>
 
 #include <algorithm>
 
-#include "app/util/Config/musicdatastruct.h"
+#include "app/util/Interface/iplaylist.h"
+#include "app/util/Interface/isong.h"
+#include "app/util/Interface/musicdatastruct.h"
+#include "app/util/Interface/api.h"
 
-class MusicLibrary;
+class IPlayList;
+class ISong;
 struct SongInfo;
-
 
 class PlayList : public QObject
 {
     Q_OBJECT
 public:
-    explicit PlayList(const QString& name, QObject* parent = nullptr);
-    
+    explicit PlayList(const int id, const QString& name, QObject* parent = nullptr);
+    virtual ~PlayList() = default;
+    int m_id;
+    QString m_name;
+    // 顺序标记
+    QVector<int> m_songIDs;
+    // 歌曲信息
+    QHash<int,QSharedPointer<SongInfo>> m_songs;
+    bool allowLoop = true;
+    bool allowShuffle = false;
     int id() const;
     QString name() const;
     void setName(const QString& name);
 
-    QHash<int, SongInfo> getSongs() const;
+    QHash<int, QSharedPointer<SongInfo>> getSongs() const;
+    QSharedPointer<SongInfo> getFirstSong() const;
+    QSharedPointer<SongInfo> getSong(const int songID) const;
+    QSharedPointer<SongInfo> getPreviousSong(int currentSongID) const;
     QVector<int> getSongIDs() const;
-    
-    int addSong(const QString& songPath);
-    int addSong(const int& songID);
+
+    int addSong(const int songID);
 
     int moveSongs(const QVector<int> songIDs, const int newPos);
     
-    int removeSongs(const QVector<int> &songIDs);
+    int removeSongs(const QVector<int> songIDs);
+
+    int size() const;
+
+    bool songExist(const int songID) const;
 
     virtual bool isSmart() const { return false; }
 
@@ -44,18 +62,19 @@ signals:
     void RemovedSong(const QVector<int> &songIDs);
 
 protected:
-    MusicLibrary &musicLib;
+    IPlayList *pl_db;
+    ISong *song_db;
+    // MusicLibrary &musicLib;
+    QSqlDatabase m_db;
+    // QVector<int> loadAllSongs();
     // MusicLibrary::PlayList playListInfo;
-    int m_id;
-    QString m_name;
-    // 顺序标记
-    QVector<int> m_songIDs;
-    // 歌曲信息
-    QHash<int, SongInfo> m_songs;
+
+    virtual PlayList* createPlayList(int playListID, const QString& name) const {
+        return new PlayList(playListID, name); 
+    }
 
     qint64 m_lastModified;
 
-    int getPlayListID();
     int saveToLibrary();
     void loadFromLibrary();
 };

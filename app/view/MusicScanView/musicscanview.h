@@ -9,7 +9,6 @@
 #include <QDebug>
 #include <QMessageBox>
 
-#include "app/util/Config/musiclibrary.h"
 #include "app/util/MusicScan/musicscanner.h"
 #include "app/util/Config/configmanager.h"
 
@@ -22,7 +21,6 @@ public:
     explicit MusicScanView(QWidget *parent = nullptr);
 
 private:
-    MusicLibrary &musicLib;
     MusicScanner &musicScanner;
     ConfigManager &configManager;
     CardButton *ScannerButton;

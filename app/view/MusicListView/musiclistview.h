@@ -10,8 +10,11 @@
 #include <QMessageBox>
 #include <QPushButton>
 
-#include "app/util/Config/musiclibrary.h"
-#include "app/util/PlayList/playlistmanager.h"
+#include "app/util/Interface/musicdatastruct.h"
+#include "app/util/Interface/iplaylist.h"
+// #include "app/util/PlayList/playlistmanager.h"
+#include "app/util/MusicPlayer/musicservice.h"
+#include "app/util/Interface/api.h"
 
 class MusicListView : public QWidget {
     Q_OBJECT
@@ -26,13 +29,14 @@ private:
 
     QListView *listView;
     QStandardItemModel *model;
-    MusicLibrary &musicLib;
-    PlayListManager &plManager;
+    IPlayList *pl_db;
+    MusicService *player;
 
     QPushButton *refreshButton;
 
 private slots:
     void onItemClicked(const QModelIndex &index);
+    void onItemDoubleClicked(const QModelIndex &index);
 };
 
 #endif // MUSICLISTVIEW_H
